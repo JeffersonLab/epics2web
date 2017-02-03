@@ -8,7 +8,7 @@ Provides a websocket API to query [EPICS](http://www.aps.anl.gov/epics/) channel
 
 
 ## Installation
-   1. Download Apache Tomcat
+   1. Download [Apache Tomcat](http://tomcat.apache.org/)
    1. Download epics2web.war and drop it into the webapps directory
    1. Start Tomcat and navigate your web browser to localhost:8080/epics2web
 
