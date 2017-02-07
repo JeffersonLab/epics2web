@@ -16,17 +16,28 @@ Console Page
 ## API
 
 ### Methods
-jlab.epics2web.ClientConnection(options)
 
-monitorPvs(pvs)
+**jlab.epics2web.ClientConnection(options)**
+- *Description:* Create a new ClientConnection
+- *Input*: options - see [Options](#options)
+- *Output:* ClientConnection
 
-clearPvs(pvs)
+**jlab.epics2web.monitorPvs(pvs)**
+- *Description:* Monitor a set of PVs
+- *Input:* pvs - array of pv names
 
-ping()
+**jlab.epics2web.clearPvs(pvs)**
+- *Description:* Stop monitoring a set of PVs
+- *Input:* pvs - array of pv names
 
-open()
+**jlab.epics2web.ping()**
+- *Description:* Ping the server
 
-close()
+**jlab.epics2web.open()**
+- *Description:* Open the websocket connection (See [autoOpen](#options))
+
+**jlab.epics2web.close()**
+- *Description:* Close the websocket connection
 
 ### Events
 - *open* - This event is triggered after the socket is open
@@ -49,7 +60,7 @@ close()
 | autoDisplayClasses | As connect state changes will hide and show elements with corresponding state classes: ws-disconnected, ws-connecting, ws-connected | true |
 | pingIntervalMillis | Milliseconds to wait between pings | 8000 |
 | livenessTimoutMillis | Max milliseconds allowed for server to respond to a ping (via any message) | 2000 | 
-| reconnectWaitMillis | Time to wait after socket closed before attempting reconnect | 10000 |
+| reconnectWaitMillis | Milliseconds to wait after socket closed before attempting reconnect | 10000 |
 
 ## Example
 
