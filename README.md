@@ -103,3 +103,8 @@ con.oninfo = function (e) {
 ## Configuration
 
 This application uses the [Channel Access for Java](http://epics-jca.sourceforge.net/caj/) library.   It requires a working EPICS channel access environment with the environment variable *EPICS_CA_ADDR_LIST* set.
+
+## See Also
+- [Web Extensible Display Manager (wedm)](https://github.com/JeffersonLab/wedm)
+- [PV Monitor Runchart](https://github.com/JeffersonLab/runchart)
+
