@@ -15,6 +15,42 @@ Console Page
 
 ## API
 
+### Methods
+jlab.epics2web.ClientConnection(options)
+
+monitorPvs(pvs)
+
+clearPvs(pvs)
+
+ping()
+
+open()
+
+close()
+
+### Events
+- *open* - This event is triggered after the socket is open
+- *close* - This event is triggered after the socket is closed
+- *connecting* - This event is triggered as the socket is connecting
+- *closing* - This event is triggered as the socket is closing
+- *error* - This event is triggered upon socket error
+- *message* - This event is triggered upon message (update/info/pong)
+- *info* - This event is triggered upon an info message
+- *update* - This event is triggered upon an update message
+- *pong* - This event is triggered upon a pong message
+
+### Options
+| Name | Description | Default |
+|------|-------------|---------|
+| url | Path to epics2web web socket monitor | "ws://" + window.location.host + "/epics2web/monitor" |
+| autoOpen | Whether to automatically connect to socket immediately instead of waiting for open function to be called | true |
+| autoReconnect | If socket is closed, will automatically reconnect after reconnectWaitMillis | true | 
+| autoLivenessPingAndTimeout | Will ping the server every pingIntervalMillis and if no response in livenessTimeoutMillis then will close the socket as invalid | true | 
+| autoDisplayClasses | As connect state changes will hide and show elements with corresponding state classes: ws-disconnected, ws-connecting, ws-connected | true |
+| pingIntervalMillis | Milliseconds to wait between pings | 8000 |
+| livenessTimoutMillis | Max milliseconds allowed for server to respond to a ping (via any message) | 2000 | 
+| reconnectWaitMillis | Time to wait after socket closed before attempting reconnect | 10000 |
+
 ## Example
 
 ```JavaScript
