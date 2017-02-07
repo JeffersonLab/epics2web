@@ -24,7 +24,7 @@ var options = {},
 
 con.onopen = function (e) {
     console.log('Socket Connected');
-    jlab.wedm.con.monitorPvs(monitoredPvs);
+    con.monitorPvs(monitoredPvs);
 };
 
 con.onupdate = function (e) {
