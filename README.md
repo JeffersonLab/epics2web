@@ -18,26 +18,36 @@ Console Page
 ### Methods
 
 **jlab.epics2web.ClientConnection(options)**
-- *Description:* Create a new ClientConnection
-- *Input*: options - see [Options](#options)
-- *Output:* ClientConnection
+
+Create a new ClientConnection
+
+*Input*: options - see [Options](#options)
+
+*Output:* ClientConnection
 
 **jlab.epics2web.monitorPvs(pvs)**
-- *Description:* Monitor a set of PVs
-- *Input:* pvs - array of pv names
+
+Monitor a set of PVs
+
+*Input:* pvs - array of pv names
 
 **jlab.epics2web.clearPvs(pvs)**
-- *Description:* Stop monitoring a set of PVs
-- *Input:* pvs - array of pv names
+
+Stop monitoring a set of PVs
+
+*Input:* pvs - array of pv names
 
 **jlab.epics2web.ping()**
-- *Description:* Ping the server
+
+Ping the server
 
 **jlab.epics2web.open()**
-- *Description:* Open the websocket connection (See [autoOpen](#options))
+
+Open the websocket connection
 
 **jlab.epics2web.close()**
-- *Description:* Close the websocket connection
+
+Close the websocket connection
 
 ### Events
 - *open* - This event is triggered after the socket is open
