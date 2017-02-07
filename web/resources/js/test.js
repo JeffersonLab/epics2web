@@ -5,6 +5,7 @@ jlab.epics2web.test = jlab.epics2web.test || {};
 jlab.epics2web.test.con = null;
 jlab.epics2web.test.pvToWidgetMap = {};
 jlab.epics2web.test.MAX_MONITORS = 100;
+jlab.epics2web.test.enumLabelMap = {};
 
 $(document).on("click", "#go-button", function () {
     var pv = $.trim($("#pv-input").val());
@@ -55,6 +56,7 @@ $(document).on("click", ".close-button", function () {
     jlab.epics2web.test.con.clearPvs([pv]);
     $tr.remove();
     delete jlab.epics2web.test.pvToWidgetMap[pv];
+    delete jlab.epics2web.test.enumLabelMap[pv];
 });
 
 jlab.triCharMonthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -95,10 +97,24 @@ $(function () {
         var $tr = jlab.epics2web.test.pvToWidgetMap[e.detail.pv];
         if (typeof $tr !== 'undefined') {
 
-            var value = e.detail.value;
+            var value = e.detail.value,
+                    type = $tr.find(".pv-type").text();
 
-            if ($.isNumeric(value)) {
-                value = value.toFixed(3);
+            if (type === 'DBR_ENUM') {
+                var labels = jlab.epics2web.test.enumLabelMap[e.detail.pv];
+
+                value = value.toFixed(0);
+
+                if (typeof labels !== 'undefined') {
+                    value = labels[value];
+                }
+            } else if ($.isNumeric(value)) {
+                var int = (type === 'DBR_INT');
+                if (int) {
+                    value = value.toFixed(0);
+                } else {
+                    value = value.toFixed(3);
+                }
             }
 
             $tr.find(".pv-value").text(value);
@@ -113,6 +129,11 @@ $(function () {
         if (typeof $tr !== 'undefined') {
             $tr.find(".pv-status").text(e.detail.connected ? 'Connected' : 'Disconnected');
             $tr.find(".pv-type").text(e.detail.datatype);
+
+            if (typeof e.detail['enum-labels'] !== 'undefined') {
+                jlab.epics2web.test.enumLabelMap[e.detail.pv] = e.detail['enum-labels'];
+            }
+
         } else {
             console.log('Server is providng me with metadata on a PV I am unaware of: ' + e.detail.pv);
         }
