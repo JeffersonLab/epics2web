@@ -1,0 +1,20 @@
+#pv-input {
+    width: 9em;
+}
+img {
+    
+    background-color: white;
+    border-radius: 8px;
+}
+#socket-input {
+    float: right;
+}
+.socket-status-text {
+    vertical-align: bottom;
+}
+.socket-status-img img {
+    vertical-align: middle;
+}
+.socket-status-label {
+    vertical-align: bottom;
+}

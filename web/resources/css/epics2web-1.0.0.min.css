@@ -1,0 +1,1 @@
+.connecting-spinner{animation-timing-function:linear;animation-duration:2s;animation-name:spin;animation-iteration-count:infinite;transform-origin:50% 50%}@keyframes spin{100%{transform:rotate(360deg)}}

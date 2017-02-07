@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<?xml-stylesheet type="text/css" href="../css/connecting.css"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" stroke="orange" fill="none">
+    <g class="connecting-spinner">
+        <path d="M20,50 A30,30 0 1 1 50,80" stroke-width="3"/>
+        <path d="M7.5,50 A12.5,12.5 0 0 1 32.5 50 z" fill="orange"/>   
+        <path d="M50,92.5 A12.5,12.5 0 0 0 50 67.5 z" fill="orange"/> 
+        <line x1="50" y1="75" x2="44" y2="75" stroke-linecap="round"/>
+        <line x1="50" y1="85" x2="44" y2="85" stroke-linecap="round"/>
+    </g>
+</svg>

@@ -1,0 +1,35 @@
+body {
+    font-family: Tahoma, Arial, sans-serif;
+}
+h1 {
+    text-align: center;
+    font-size: 26px;
+}
+h2 {
+    text-align: center;
+    font-size: 24px;
+}
+h3 {
+    padding: 4px;
+    margin-bottom: 0;
+    background-color: #d2a41c;
+    font-size: 18px;
+    font-style: italic;
+}
+table {
+    border-collapse: collapse;
+    border: 3px outset gray;
+    width: 100%;
+    padding: 1px;
+}
+td, th {
+    border: 3px inset gray;
+}
+td {
+    text-align: center;
+}
+th {
+    background-color: #ffdc75;
+}
+
+
