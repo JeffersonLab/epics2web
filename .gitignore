@@ -14,3 +14,4 @@ hs_err_pid*
 /nbproject/
 /lib/nblibraries.properties
 /build/
+/dist/
