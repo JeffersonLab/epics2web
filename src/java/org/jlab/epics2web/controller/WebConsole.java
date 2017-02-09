@@ -11,7 +11,6 @@ import javax.servlet.http.HttpServletResponse;
 import javax.websocket.Session;
 import org.jlab.epics2web.Application;
 import org.jlab.epics2web.websocket.WebSocketSessionManager;
-import org.jlab.epics2web.epics.ChannelMonitor;
 import org.jlab.epics2web.epics.ChannelMonitorManager;
 
 /**
@@ -39,7 +38,7 @@ public class WebConsole extends HttpServlet {
             throws ServletException, IOException {
         
 
-        Map<String, ChannelMonitor> monitorMap = channelManager.getMonitorMap();
+        Map<String, Integer> monitorMap = channelManager.getMonitorMap();
         Map<Session, Set<String>> clientMap = sessionManager.getClientMap();
         
         request.setAttribute("monitorMap", monitorMap);

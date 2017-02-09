@@ -29,7 +29,7 @@ import java.util.logging.Logger;
  *
  * @author ryans
  */
-public class ChannelMonitor implements Closeable {
+class ChannelMonitor implements Closeable {
 
     private static final Logger LOGGER = Logger.getLogger(ChannelMonitor.class.getName());
 

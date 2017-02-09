@@ -87,7 +87,7 @@ public class WebSocketSessionManager {
      * 
      * @param session The session (client) to remove
      */
-    public void removeClient(Session session) {
+    public synchronized void removeClient(Session session) {
         WebSocketSessionMonitor listener = listenerMap.get(session);
 
         if (listener != null) {
@@ -125,7 +125,7 @@ public class WebSocketSessionManager {
      * 
      * @return The map
      */
-    public Map<Session, Set<String>> getClientMap() {
+    public synchronized Map<Session, Set<String>> getClientMap() {
         Map<PvListener, Set<String>> pvMap = Application.channelManager.getClientMap();
         Map<Session, Set<String>> clientMap = new HashMap<>();
 
@@ -138,7 +138,7 @@ public class WebSocketSessionManager {
         return clientMap;
     }
 
-    private WebSocketSessionMonitor getListener(Session session) {
+    private synchronized WebSocketSessionMonitor getListener(Session session) {
         WebSocketSessionMonitor listener = listenerMap.get(session);
 
         if (listener == null) {

@@ -25,14 +25,15 @@ public class ChannelMonitorManager {
     private final Map<String, ChannelMonitor> monitorMap = new HashMap<>();
     private final Map<PvListener, Set<String>> clientMap = new HashMap<>();
 
-    private final CAJContext context;    
+    private final CAJContext context;
     private final ScheduledExecutorService executor;
-    
+
     /**
      * Create a new ChannelMonitorManager.
+     *
      * @param context EPICS channel access context
      * @param executor Thread pool for connection timeout
-     */    
+     */
     public ChannelMonitorManager(CAJContext context, ScheduledExecutorService executor) {
         this.context = context;
         this.executor = executor;
@@ -50,7 +51,7 @@ public class ChannelMonitorManager {
         pvSet.add(pv);
         addPvs(listener, pvSet);
     }
-    
+
     /**
      * Registers PV monitors on the supplied PVs for the given listener. Note that internally only a
      * single monitor is used for any given PV. PVs for which the given listener is already
@@ -59,7 +60,7 @@ public class ChannelMonitorManager {
      *
      * @param listener The PvListener to receive notifications
      * @param addPvSet The set of PVs to monitor
-     */    
+     */
     public void addPvs(PvListener listener, Set<String> addPvSet) {
         writeLock.lock();
         try {
@@ -79,7 +80,7 @@ public class ChannelMonitorManager {
                     } else {
                         //LOGGER.log(Level.FINEST, "Joining ChannelMonitor: {0}", pv);
                     }
-                    
+
                     monitor.addListener(listener);
                 }
             }
@@ -101,7 +102,7 @@ public class ChannelMonitorManager {
      *
      * @param listener The PvListener
      * @param clearPvSet The PV set to clear
-     */    
+     */
     public void clearPvs(PvListener listener, Set<String> clearPvSet) {
         writeLock.lock();
         try {
@@ -129,7 +130,7 @@ public class ChannelMonitorManager {
      * Allowing a listener without any PVs registered may be deprecated in the future.
      *
      * @param listener The PvListener
-     */    
+     */
     public void addListener(PvListener listener) {
         writeLock.lock();
         try {
@@ -147,7 +148,7 @@ public class ChannelMonitorManager {
      *
      * @param listener The PvListener
      * @param pvList The PV list (and indirectly the channel list)
-     */    
+     */
     private void removeFromChannels(PvListener listener, Set<String> pvSet) {
         if (pvSet != null) { // Some clients don't immediately connect to a pv so have an empty pv list
             for (String pv : pvSet) {
@@ -170,35 +171,40 @@ public class ChannelMonitorManager {
         }
     }
 
-   /**
+    /**
      * Removes the specified listener and unregisters any PVs the listener was interested in.
      *
      * @param listener The PvListener
-     */    
+     */
     public void removeListener(PvListener listener) {
         //LOGGER.log(Level.FINEST, "removeListener: {0}", session);
+        Set<String> pvSet;
         writeLock.lock();
         try {
-            Set<String> pvSet = clientMap.get(listener);
-
-            removeFromChannels(listener, pvSet);
+            pvSet = clientMap.get(listener);
 
             clientMap.remove(listener);
         } finally {
             writeLock.unlock();
         }
+        
+        // Don't do this while holding writeLock above since this method could be called by monitorChanged or from websocket close!
+        removeFromChannels(listener, pvSet);        
     }
 
     /**
      * Returns a map of PVs to count of listeners for informational purposes.
      *
      * @return The PV to monitor map
-     */    
-    public Map<String, ChannelMonitor> getMonitorMap() {
-        Map<String, ChannelMonitor> map;
+     */
+    public Map<String, Integer> getMonitorMap() {
+        Map<String, Integer> map;
         readLock.lock();
         try {
-            map = Collections.unmodifiableMap(monitorMap);
+            map = new HashMap<>();
+            for (String pv : monitorMap.keySet()) {
+                map.put(pv, monitorMap.get(pv).getListenerCount());
+            }
         } finally {
             readLock.unlock();
         }
@@ -209,7 +215,7 @@ public class ChannelMonitorManager {
      * Returns an unmodifiable map of listeners to their PVs for informational purposes.
      *
      * @return The listener to PVs map
-     */    
+     */
     public Map<PvListener, Set<String>> getClientMap() {
         Map<PvListener, Set<String>> map;
         readLock.lock();

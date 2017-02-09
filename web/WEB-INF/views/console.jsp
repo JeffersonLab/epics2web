@@ -44,7 +44,7 @@
                 <c:forEach items="${monitorMap}" var="monitor">
                     <tr>
                         <td><c:out value="${monitor.key}"/></td>
-                        <td><c:out value="${monitor.value.getListenerCount()}"/></td>
+                        <td><c:out value="${monitor.value}"/></td>
                     </tr>
                 </c:forEach>
             </tbody>
