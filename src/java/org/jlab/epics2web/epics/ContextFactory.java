@@ -61,7 +61,13 @@ public class ContextFactory {
         logger.log(Level.FINEST, "Constructing ContextPoolFactory");
         DefaultConfiguration config = new DefaultConfiguration("myconfig");
 
-        config.setAttribute("addr_list", System.getenv("EPICS_CA_ADDR_LIST"));
+        String addrList = System.getenv("EPICS_CA_ADDR_LIST");
+        
+        if(addrList == null || addrList.trim().isEmpty()) {
+            throw new RuntimeException("Environment variable EPICS_CA_ADDR_LIST must be set");
+        }
+        
+        config.setAttribute("addr_list", addrList);
         config.setAttribute("auto_addr_list", "false");
         
         try {
