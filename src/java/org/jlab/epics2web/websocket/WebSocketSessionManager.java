@@ -7,6 +7,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.json.Json;
@@ -22,18 +25,22 @@ import org.jlab.epics2web.epics.PvListener;
 
 /**
  * Manages web socket sessions and ties them to channel access monitors.
- * 
+ *
  * @author ryans
  */
 public class WebSocketSessionManager {
 
     private static final Logger LOGGER = Logger.getLogger(WebSocketSessionManager.class.getName());
 
+    private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
+    private final Lock readLock = rwLock.readLock();
+    private final Lock writeLock = rwLock.writeLock();
+
     private final Map<Session, WebSocketSessionMonitor> listenerMap = new HashMap<>();
 
     /**
-     * Send a pong reply.  This is generally done in response to a client ping.
-     * 
+     * Send a pong reply. This is generally done in response to a client ping.
+     *
      * @param session The web socket session
      * @throws IOException If unable to send the message.
      */
@@ -52,7 +59,7 @@ public class WebSocketSessionManager {
 
     /**
      * Parse a client request to extract a set of PVs.
-     * 
+     *
      * @param pvs The JSON array containing PVs
      * @return The set of PVs
      */
@@ -73,7 +80,7 @@ public class WebSocketSessionManager {
 
     /**
      * Add a new client to the manager's list of clients.
-     * 
+     *
      * @param session The session (client) to manage
      */
     public void addClient(Session session) {
@@ -84,21 +91,28 @@ public class WebSocketSessionManager {
 
     /**
      * Remove a client from the manager's list of clients.
-     * 
+     *
      * @param session The session (client) to remove
      */
-    public synchronized void removeClient(Session session) {
+    public void removeClient(Session session) {
         WebSocketSessionMonitor listener = listenerMap.get(session);
 
         if (listener != null) {
+            writeLock.lock();
+            try {
+                listenerMap.remove(session);
+            } finally {
+                writeLock.unlock();
+            }
+
+            // Don't do this while holding writeLock above since this method could be called by monitorChanged or from websocket close!
             Application.channelManager.removeListener(listener);
-            listenerMap.remove(session);
         }
     }
 
     /**
      * Monitor the provided set of PVs for the specified client.
-     * 
+     *
      * @param session The client session
      * @param pvSet The set of PVs
      */
@@ -110,7 +124,7 @@ public class WebSocketSessionManager {
 
     /**
      * Stop monitoring the provided PVs for the specified client.
-     * 
+     *
      * @param session The client session
      * @param pvSet The set of PVs
      */
@@ -122,28 +136,39 @@ public class WebSocketSessionManager {
 
     /**
      * Get a map of sessions to PVs.
-     * 
+     *
      * @return The map
      */
-    public synchronized Map<Session, Set<String>> getClientMap() {
+    public Map<Session, Set<String>> getClientMap() {
         Map<PvListener, Set<String>> pvMap = Application.channelManager.getClientMap();
         Map<Session, Set<String>> clientMap = new HashMap<>();
 
-        for (Session session : listenerMap.keySet()) {
-            WebSocketSessionMonitor listener = listenerMap.get(session);
-            Set<String> pvSet = pvMap.get(listener);
-            clientMap.put(session, pvSet);
+        readLock.lock();
+        try {
+            for (Session session : listenerMap.keySet()) {
+                WebSocketSessionMonitor listener = listenerMap.get(session);
+                Set<String> pvSet = pvMap.get(listener);
+                clientMap.put(session, pvSet);
+            }
+        } finally {
+            readLock.unlock();
         }
 
         return clientMap;
     }
 
-    private synchronized WebSocketSessionMonitor getListener(Session session) {
-        WebSocketSessionMonitor listener = listenerMap.get(session);
+    private WebSocketSessionMonitor getListener(Session session) {
+        WebSocketSessionMonitor listener;
+        writeLock.lock();
+        try {
+            listener = listenerMap.get(session);
 
-        if (listener == null) {
-            listener = new WebSocketSessionMonitor(session, this);
-            listenerMap.put(session, listener);
+            if (listener == null) {
+                listener = new WebSocketSessionMonitor(session, this);
+                listenerMap.put(session, listener);
+            }
+        } finally {
+            writeLock.unlock();
         }
 
         return listener;
@@ -151,7 +176,7 @@ public class WebSocketSessionManager {
 
     /**
      * Notification of PV metadata sent after registering a PV with a ChannelMonitor.
-     * 
+     *
      * @param session The client
      * @param pv The PV that was registered
      * @param couldConnect true if the channel connected, false otherwise
@@ -199,11 +224,11 @@ public class WebSocketSessionManager {
 
     /**
      * Notification of PV value change.
-     * 
+     *
      * @param session The client
      * @param pv The PV
      * @param dbr The EPICS DataBaseRecord
-     */    
+     */
     public void sendUpdate(Session session, String pv, DBR dbr) {
         JsonObjectBuilder builder = Json.createObjectBuilder().add("type", "update").add(
                 "pv", pv);
