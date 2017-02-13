@@ -129,6 +129,7 @@ jlab.epics2web.ClientConnection = function (options) {
 
             socket.onerror = function (event) {
                 console.log("server connection error");
+                console.log(event);
 
                 var event = new CustomEvent('error');
                 eventElem.dispatchEvent(event);
