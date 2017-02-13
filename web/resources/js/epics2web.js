@@ -136,6 +136,7 @@ jlab.epics2web.ClientConnection = function (options) {
 
             socket.onclose = function (event) {
                 console.log("server connection closed");
+                console.log(event.reason);
 
                 var event = new CustomEvent('close');
                 eventElem.dispatchEvent(event);
