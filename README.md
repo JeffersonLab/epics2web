@@ -84,8 +84,24 @@ Convenience function for pong event.  If more than one callback is needed use Cl
 - *error* - This event is triggered upon socket error
 - *message* - This event is triggered upon message (update/info/pong)
 - *info* - This event is triggered upon an info message
+  - *Param:* event.detail.pv - PV name
+  - *Param:* event.detail.connected - true if an EPICS monitor was created
+  - *Param:* event.detail.datatype - one of [Datatypes](#datatypes)
+  - *Param:* event.detail['enum-labels'] - Array of enum labels or undefined if not of type DBR_ENUM 
 - *update* - This event is triggered upon an update message
+  - *Param:* event.detail.pv - PV name
+  - *Param:* event.detail.value - the updated value
+  - *Param:* event.detail.date - the update date
 - *pong* - This event is triggered upon a pong message
+
+### Datatypes
+- DBR_DOUBLE
+- DBR_FLOAT
+- DBR_INT
+- DBR_SHORT
+- DBR_BYTE
+- DBR_STRING
+- DBR_ENUM
 
 ### Options
 | Name | Description | Default |
