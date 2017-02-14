@@ -326,18 +326,21 @@ class ChannelMonitor implements Closeable {
         public void monitorChanged(MonitorEvent me) {
             //LOGGER.log(Level.FINEST, "Monitor Update");
             DBR dbr = me.getDBR();
+            boolean notifyInfo = false;
             writeLock.lock();
             try {
                 lastDbr = dbr;
 
                 if (!initialized) {
                     initialized = true;
+                    notifyInfo = true;
+                    
                 }
             } finally {
                 writeLock.unlock();
             }
 
-            if (!initialized) {
+            if (notifyInfo) {
                 notifyPvInfoAll();
             }
 
