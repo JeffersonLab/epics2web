@@ -82,7 +82,7 @@ $(document).on("click", ".close-button", function () {
     delete jlab.epics2web.test.pvToWidgetMap[pv];
     delete jlab.epics2web.test.enumLabelMap[pv];
     var index = jlab.epics2web.test.monitoredPvs.indexOf(pv);
-    if(index !== -1) {
+    if (index !== -1) {
         jlab.epics2web.test.monitoredPvs.splice(index, 1);
     }
 });
@@ -102,6 +102,10 @@ $(function () {
         if (jlab.epics2web.test.monitoredPvs.length > 0) {
             jlab.epics2web.test.con.monitorPvs(jlab.epics2web.test.monitoredPvs);
         }
+    };
+    
+    jlab.epics2web.test.con.onclose = function(e) {
+        $(".pv-status").text("Disconnected");
     };
 
     jlab.epics2web.test.con.onupdate = function (e) {
@@ -138,7 +142,7 @@ $(function () {
     jlab.epics2web.test.con.oninfo = function (e) {
         var $tr = jlab.epics2web.test.pvToWidgetMap[e.detail.pv];
         if (typeof $tr !== 'undefined') {
-            $tr.find(".pv-status").text(e.detail.connected ? 'Connected' : 'Disconnected');
+            $tr.find(".pv-status").text(e.detail.connected ? 'Monitoring' : 'Disconnected');
             $tr.find(".pv-type").text(e.detail.datatype);
 
             if (typeof e.detail['enum-labels'] !== 'undefined') {
