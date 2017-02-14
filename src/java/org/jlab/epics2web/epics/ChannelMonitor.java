@@ -15,12 +15,15 @@ import gov.aps.jca.event.MonitorEvent;
 import gov.aps.jca.event.MonitorListener;
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -35,7 +38,13 @@ class ChannelMonitor implements Closeable {
 
     public static final int PEND_IO_MILLIS = 3000;
 
-    private final Set<PvListener> listeners = new HashSet<>();
+    /*This LOCK provides thread safety to lastDBR, initialized, and couldConnect variables*/
+    private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
+    private final Lock readLock = rwLock.readLock();
+    private final Lock writeLock = rwLock.writeLock();
+
+    /*We use a thread-safe set for listeners so that adding/removing/iterating can be done safely*/
+    private final Set<PvListener> listeners = new CopyOnWriteArraySet<>();
     private CAJChannel c;
     private final CAJContext context;
     private final ScheduledExecutorService executor;
@@ -51,7 +60,7 @@ class ChannelMonitor implements Closeable {
      * @param pv The PV name
      * @param context The EPICS CA Context
      * @param executor The thread pool to use for connection timeout
-     */    
+     */
     public ChannelMonitor(String pv, CAJContext context, ScheduledExecutorService executor) {
         this.pv = pv;
         this.context = context;
@@ -72,13 +81,25 @@ class ChannelMonitor implements Closeable {
      * Add a new PvListener.
      *
      * @param listener The PvListener
-     */    
-    public synchronized void addListener(PvListener listener) {
+     */
+    public void addListener(PvListener listener) {
+
+        DBR dbr;
+        boolean init;
+
         listeners.add(listener);
 
-        if (initialized) {
+        readLock.lock();
+        try {
+            dbr = lastDbr;
+            init = initialized;
+        } finally {
+            readLock.unlock();
+        }
+
+        if (init) {
             notifyPvInfo(listener);
-            notifyPvUpdate(listener);
+            notifyPvUpdate(listener, dbr);
         }
     }
 
@@ -86,8 +107,8 @@ class ChannelMonitor implements Closeable {
      * Remove the supplied PvListener.
      *
      * @param listener The PvListener
-     */    
-    public synchronized void removeListener(PvListener listener) {
+     */
+    public void removeListener(PvListener listener) {
         listeners.remove(listener);
     }
 
@@ -95,8 +116,8 @@ class ChannelMonitor implements Closeable {
      * Return the number of PvListeners.
      *
      * @return The number of PvListeners
-     */    
-    public synchronized int getListenerCount() {
+     */
+    public int getListenerCount() {
         return listeners.size();
     }
 
@@ -104,9 +125,9 @@ class ChannelMonitor implements Closeable {
      * Close the ChannelMonitor.
      *
      * @throws IOException If unable to close
-     */    
+     */
     @Override
-    public synchronized void close() throws IOException {
+    public void close() throws IOException {
         //LOGGER.log(Level.FINEST, "close");
         if (c != null) {
             try {
@@ -119,8 +140,8 @@ class ChannelMonitor implements Closeable {
 
     /**
      * Notify all listeners of the channel info metadata.
-     */    
-    private synchronized void notifyPvInfoAll() {
+     */
+    private void notifyPvInfoAll() {
         for (PvListener l : listeners) {
             notifyPvInfo(l);
         }
@@ -130,24 +151,27 @@ class ChannelMonitor implements Closeable {
      * Notify a given listener of the channel info metadata.
      *
      * @param listener The PvListener
-     */    
-    private synchronized void notifyPvInfo(PvListener listener) {
+     */
+    private void notifyPvInfo(PvListener listener) {
         DBRType type = null;
         Integer count = null;
+
+        // THESE VALUES DO NOT CHANGE AFTER MONITOR INIT, SO WE DON'T HAVE TO SYNCHRONIZE
         if (couldConnect) {
             type = c.getFieldType();
             count = c.getElementCount();
         }
 
+        // ABSOLUTELY DO NOT CALL NOTIFY WHILE HOLDING A LOCK
         listener.notifyPvInfo(pv, couldConnect, type, count, enumLabels);
     }
 
     /**
      * Notify all listeners of a channel value update.
-     */    
-    private synchronized void notifyPvUpdateAll() {
+     */
+    private void notifyPvUpdateAll(DBR dbr) {
         for (PvListener s : listeners) {
-            notifyPvUpdate(s);
+            notifyPvUpdate(s, dbr);
         }
     }
 
@@ -155,14 +179,15 @@ class ChannelMonitor implements Closeable {
      * Notify a given listener of a channel value update.
      *
      * @param listener The PvListener
-     */    
-    private void notifyPvUpdate(PvListener listener) {
-        listener.notifyPvUpdate(pv, lastDbr);
+     */
+    private void notifyPvUpdate(PvListener listener, DBR dbr) {
+        // ABSOLUTELY DO NOT CALL NOTIFY WHILE HOLDING A LOCK        
+        listener.notifyPvUpdate(pv, dbr);
     }
 
     /**
      * Private inner helper class to respond to connection status changes.
-     */    
+     */
     private class ChannelConnectionListener implements ConnectionListener {
 
         private static final long CONNECTION_TIMEOUT_MILLIS = 3000;
@@ -170,13 +195,23 @@ class ChannelMonitor implements Closeable {
 
         /**
          * Creates a new ChannelConnectionListener.
-         */      
+         */
         public ChannelConnectionListener() {
             future = executor.schedule(new Callable<Void>() {
                 @Override
                 public Void call() throws Exception {
-                    if (!couldConnect) {
+                    boolean connected;
+
+                    readLock.lock();
+                    try {
+                        connected = couldConnect;
+                    } finally {
+                        readLock.unlock();
+                    }
+
+                    if (!connected) {
                         //LOGGER.log(Level.WARNING, "Unable to connect to channel (timeout)");
+
                         notifyPvInfoAll();
                     }
 
@@ -189,7 +224,7 @@ class ChannelMonitor implements Closeable {
          * Handle a connection event.
          *
          * @param ce The ConnectionEvent
-         */        
+         */
         @Override
         public void connectionChanged(ConnectionEvent ce) {
             //LOGGER.log(Level.FINEST, "Connected");
@@ -197,7 +232,12 @@ class ChannelMonitor implements Closeable {
                 //CAJChannel c2 = (CAJChannel) ce.getSource();
 
                 if (ce.isConnected()) {
-                    couldConnect = true;
+                    writeLock.lock();
+                    try {
+                        couldConnect = true;
+                    } finally {
+                        writeLock.unlock();
+                    }
                     future.cancel(false);
 
                     DBRType type = c.getFieldType();
@@ -220,7 +260,7 @@ class ChannelMonitor implements Closeable {
          *
          * @throws IllegalStateException If unable to initialize
          * @throws CAException If unable to initialize
-         */        
+         */
         private void handleRegularConnection() throws
                 IllegalStateException, CAException {
             registerMonitor();
@@ -234,7 +274,7 @@ class ChannelMonitor implements Closeable {
          *
          * @throws IllegalStateException If unable to initialize
          * @throws CAException If unable to initialize
-         */        
+         */
         private void handleEnumConnection() throws IllegalStateException, CAException {
             c.get(DBRType.LABELS_ENUM, 1, new ChannelEnumGetListener());
 
@@ -243,17 +283,17 @@ class ChannelMonitor implements Closeable {
 
         /**
          * Register the monitor in the low-level EPICS lib plumbing.
-         * 
+         *
          * @throws IllegalStateException If unable to register
          * @throws CAException If unable to register
-         */        
+         */
         private void registerMonitor() throws IllegalStateException, CAException {
             c.addMonitor(c.getFieldType(), 1, Monitor.VALUE, new ChannelMonitorListener());
         }
 
         /**
          * A private inner inner class to respond to an enum label caget.
-         */        
+         */
         private class ChannelEnumGetListener implements GetListener {
 
             @Override
@@ -274,28 +314,34 @@ class ChannelMonitor implements Closeable {
 
     /**
      * Private inner class to handle monitor callbacks.
-     */    
+     */
     private class ChannelMonitorListener implements MonitorListener {
 
         /**
          * Handles a monitor event.
-         * 
+         *
          * @param me The MonitorEvent
-         */        
+         */
         @Override
         public void monitorChanged(MonitorEvent me) {
             //LOGGER.log(Level.FINEST, "Monitor Update");
-            synchronized (ChannelMonitor.this) {
-                lastDbr = me.getDBR();
+            DBR dbr = me.getDBR();
+            writeLock.lock();
+            try {
+                lastDbr = dbr;
 
                 if (!initialized) {
                     initialized = true;
-
-                    notifyPvInfoAll();
                 }
-
-                notifyPvUpdateAll();
+            } finally {
+                writeLock.unlock();
             }
+
+            if (!initialized) {
+                notifyPvInfoAll();
+            }
+
+            notifyPvUpdateAll(dbr);
         }
     }
 }
