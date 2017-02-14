@@ -83,6 +83,8 @@ Convenience function for pong event.  If more than one callback is needed use Cl
 - *closing* - This event is triggered as the socket is closing
 - *error* - This event is triggered upon socket error
 - *message* - This event is triggered upon message (update/info/pong)
+  - *Param:* event.type - One of 'update', 'info', 'pong'
+  - *Param:* event.* - Contents based on type, see info, update, pong events
 - *info* - This event is triggered upon an info message
   - *Param:* event.detail.pv - PV name
   - *Param:* event.detail.connected - true if an EPICS monitor was created
