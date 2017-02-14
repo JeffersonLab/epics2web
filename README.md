@@ -18,26 +18,63 @@ Console Page
 ### Methods
 
 **jlab.epics2web.ClientConnection(options)**  
-Create a new ClientConnection  
-*Input*: options - see [Options](#options)  
+Create a new ClientConnection.  
+*Input:* options - see [Options](#options)  
 *Output:* ClientConnection  
 
-**jlab.epics2web.monitorPvs(pvs)**  
-Monitor a set of PVs  
+**jlab.epics2web.ClientConnection.monitorPvs(pvs)**  
+Monitor a set of PVs.  
 *Input:* pvs - array of pv names  
 
-**jlab.epics2web.clearPvs(pvs)**  
-Stop monitoring a set of PVs  
+**jlab.epics2web.ClientConnection.clearPvs(pvs)**  
+Stop monitoring a set of PVs.  
 *Input:* pvs - array of pv names  
 
-**jlab.epics2web.ping()**  
-Ping the server  
+**jlab.epics2web.ClientConnection.ping()**  
+Ping the server.  
 
-**jlab.epics2web.open()**  
-Open the websocket connection  
+**jlab.epics2web.ClientConnection.open()**  
+Open the websocket connection.  
 
-**jlab.epics2web.close()**  
-Close the websocket connection  
+**jlab.epics2web.ClientConnection.close()**  
+Close the websocket connection.  
+
+**jlab.epics2web.ClientConnection.addEventListener(name, function)**  
+Add a callback function on a named event.  
+*Input:* name - the event name; see [Events](#events)  
+*Input:* function - the function to call  
+
+**jlab.epics2web.ClientConnection.onopen(function)**  
+Convenience function for open event.  If more than one callback is needed use ClientConnection.addEventListener instead.  
+*Input:* function - the function to call  
+
+**jlab.epics2web.ClientConnection.onclose(function)**  
+Convenience function for close event.  If more than one callback is needed use ClientConnection.addEventListener instead.  
+*Input:* function - the function to call  
+
+**jlab.epics2web.ClientConnection.onconnecting(function)**  
+Convenience function for connecting event.  If more than one callback is needed use ClientConnection.addEventListener instead.  
+*Input:* function - the function to call  
+
+**jlab.epics2web.ClientConnection.onclosing(function)**  
+Convenience function for closing event.  If more than one callback is needed use ClientConnection.addEventListener instead.  
+*Input:* function - the function to call  
+
+**jlab.epics2web.ClientConnection.onerror(function)**  
+Convenience function for error event.  If more than one callback is needed use ClientConnection.addEventListener instead.  
+*Input:* function - the function to call  
+
+**jlab.epics2web.ClientConnection.onupdate(function)**  
+Convenience function for update event.  If more than one callback is needed use ClientConnection.addEventListener instead.  
+*Input:* function - the function to call  
+
+**jlab.epics2web.ClientConnection.oninfo(function)**  
+Convenience function for info event.  If more than one callback is needed use ClientConnection.addEventListener instead.  
+*Input:* function - the function to call  
+
+**jlab.epics2web.ClientConnection.onpong(function)**  
+Convenience function for pong event.  If more than one callback is needed use ClientConnection.addEventListener instead.  
+*Input:* function - the function to call  
 
 ### Events
 - *open* - This event is triggered after the socket is open
