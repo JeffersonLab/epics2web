@@ -7,9 +7,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.json.Json;
@@ -32,11 +30,8 @@ public class WebSocketSessionManager {
 
     private static final Logger LOGGER = Logger.getLogger(WebSocketSessionManager.class.getName());
 
-    private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
-    private final Lock readLock = rwLock.readLock();
-    private final Lock writeLock = rwLock.writeLock();
-
-    private final Map<Session, WebSocketSessionMonitor> listenerMap = new HashMap<>();
+    /*ConcurrentHashMap provides thread safety on map of listeners*/
+    private final Map<Session, WebSocketSessionMonitor> listenerMap = new ConcurrentHashMap<>();
 
     /**
      * Send a pong reply. This is generally done in response to a client ping.
@@ -98,14 +93,8 @@ public class WebSocketSessionManager {
         WebSocketSessionMonitor listener = listenerMap.get(session);
 
         if (listener != null) {
-            writeLock.lock();
-            try {
-                listenerMap.remove(session);
-            } finally {
-                writeLock.unlock();
-            }
+            listenerMap.remove(session);
 
-            // Don't do this while holding writeLock above since this method could be called by monitorChanged or from websocket close!
             Application.channelManager.removeListener(listener);
         }
     }
@@ -143,32 +132,21 @@ public class WebSocketSessionManager {
         Map<PvListener, Set<String>> pvMap = Application.channelManager.getClientMap();
         Map<Session, Set<String>> clientMap = new HashMap<>();
 
-        readLock.lock();
-        try {
-            for (Session session : listenerMap.keySet()) {
-                WebSocketSessionMonitor listener = listenerMap.get(session);
-                Set<String> pvSet = pvMap.get(listener);
-                clientMap.put(session, pvSet);
-            }
-        } finally {
-            readLock.unlock();
+        for (Session session : listenerMap.keySet()) {
+            WebSocketSessionMonitor listener = listenerMap.get(session);
+            Set<String> pvSet = pvMap.get(listener);
+            clientMap.put(session, pvSet);
         }
 
         return clientMap;
     }
 
     private WebSocketSessionMonitor getListener(Session session) {
-        WebSocketSessionMonitor listener;
-        writeLock.lock();
-        try {
-            listener = listenerMap.get(session);
+        WebSocketSessionMonitor listener = listenerMap.get(session);
 
-            if (listener == null) {
-                listener = new WebSocketSessionMonitor(session, this);
-                listenerMap.put(session, listener);
-            }
-        } finally {
-            writeLock.unlock();
+        if (listener == null) {
+            listener = new WebSocketSessionMonitor(session, this);
+            listenerMap.put(session, listener);
         }
 
         return listener;

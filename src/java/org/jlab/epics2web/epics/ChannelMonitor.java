@@ -334,7 +334,6 @@ class ChannelMonitor implements Closeable {
                 if (!initialized) {
                     initialized = true;
                     notifyInfo = true;
-                    
                 }
             } finally {
                 writeLock.unlock();
