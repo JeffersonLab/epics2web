@@ -1,25 +1,36 @@
 var jlab = jlab || {};
+
+jlab.triCharMonthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
 jlab.epics2web = jlab.epics2web || {};
 jlab.epics2web.test = jlab.epics2web.test || {};
 
 jlab.epics2web.test.con = null;
+jlab.epics2web.test.options = {};
 jlab.epics2web.test.pvToWidgetMap = {};
 jlab.epics2web.test.MAX_MONITORS = 100;
 jlab.epics2web.test.enumLabelMap = {};
+jlab.epics2web.test.monitoredPvs = [];
 
-$(document).on("click", "#go-button", function () {
-    var pv = $.trim($("#pv-input").val());
+jlab.dateTimeToJLabString = function (x) {
+    var year = x.getFullYear(),
+            month = x.getMonth(),
+            day = x.getDate(),
+            hour = x.getHours(),
+            minute = x.getMinutes(),
+            second = x.getSeconds();
 
-    if (pv === '') {
-        alert('Please provide an EPICS PV name');
-    } else {
-        jlab.epics2web.addPv(pv);
-    }
+    return jlab.pad(day, 2) + '-' + jlab.triCharMonthNames[month] + '-' + year + ' ' + jlab.pad(hour, 2) + ':' + jlab.pad(minute, 2) + ':' + jlab.pad(second, 2);
+};
 
-    return false;
-});
+jlab.pad = function (n, width, z) {
+    z = z || '0';
+    n = n + '';
+    return n.length >= width ? n : new Array(width - n.length + 1).join(z) + n;
+};
 
-jlab.epics2web.addPv = function (pv) {
+jlab.epics2web.test.addPv = function (pv) {
     if (jlab.epics2web.test.con === null) {
         alert('Not connected');
         return;
@@ -42,6 +53,7 @@ jlab.epics2web.addPv = function (pv) {
     $tbody.append($tr);
 
     jlab.epics2web.test.pvToWidgetMap[pv] = $tr;
+    jlab.epics2web.test.monitoredPvs.push(pv);
 
     var pvs = [pv];
 
@@ -50,6 +62,18 @@ jlab.epics2web.addPv = function (pv) {
     $("#pv-input").val("");
 };
 
+$(document).on("click", "#go-button", function () {
+    var pv = $.trim($("#pv-input").val());
+
+    if (pv === '') {
+        alert('Please provide an EPICS PV name');
+    } else {
+        jlab.epics2web.test.addPv(pv);
+    }
+
+    return false;
+});
+
 $(document).on("click", ".close-button", function () {
     var $tr = $(this).closest("tr"),
             pv = $tr.find(".pv-name").text();
@@ -57,26 +81,11 @@ $(document).on("click", ".close-button", function () {
     $tr.remove();
     delete jlab.epics2web.test.pvToWidgetMap[pv];
     delete jlab.epics2web.test.enumLabelMap[pv];
+    var index = jlab.epics2web.test.monitoredPvs.indexOf(pv);
+    if(index !== -1) {
+        jlab.epics2web.test.monitoredPvs.splice(index, 1);
+    }
 });
-
-jlab.triCharMonthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-jlab.dateTimeToJLabString = function (x) {
-    var year = x.getFullYear(),
-            month = x.getMonth(),
-            day = x.getDate(),
-            hour = x.getHours(),
-            minute = x.getMinutes(),
-            second = x.getSeconds();
-
-    return jlab.pad(day, 2) + '-' + jlab.triCharMonthNames[month] + '-' + year + ' ' + jlab.pad(hour, 2) + ':' + jlab.pad(minute, 2) + ':' + jlab.pad(second, 2);
-};
-
-jlab.pad = function (n, width, z) {
-    z = z || '0';
-    n = n + '';
-    return n.length >= width ? n : new Array(width - n.length + 1).join(z) + n;
-};
 
 $(function () {
     $('#pv-input').on("keyup", function (e) {
@@ -86,11 +95,13 @@ $(function () {
         }
     });
 
-    var options = {};
-
-    jlab.epics2web.test.con = new jlab.epics2web.ClientConnection(options);
+    jlab.epics2web.test.con = new jlab.epics2web.ClientConnection(jlab.epics2web.test.options);
 
     jlab.epics2web.test.con.onopen = function (e) {
+        /*This is for re-connect - on inital connect array will be empty*/
+        if (jlab.epics2web.test.monitoredPvs.length > 0) {
+            jlab.epics2web.test.con.monitorPvs(jlab.epics2web.test.monitoredPvs);
+        }
     };
 
     jlab.epics2web.test.con.onupdate = function (e) {
