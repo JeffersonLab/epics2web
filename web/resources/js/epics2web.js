@@ -31,7 +31,8 @@ jlab.epics2web.ClientConnection = function (options) {
         autoDisplayClasses: true, /* As connect state changes will hide and show elements with corresponding state classes: ws-disconnected, ws-connecting, ws-connected */
         pingIntervalMillis: 8000, /* Time to wait between pings */
         livenessTimoutMillis: 2000, /* Max time allowed for server to respond to a ping (via any message) */
-        reconnectWaitMillis: 10000 /* Time to wait after socket closed before attempting reconnect */
+        reconnectWaitMillis: 10000, /* Time to wait after socket closed before attempting reconnect */
+        chunkedRequestPvsCount: 400 /* Max number of PVs to transmit in a chunked monitor or clear command; 0 to disable chunking */
     };
 
     if (!options) {
@@ -213,11 +214,35 @@ jlab.epics2web.ClientConnection = function (options) {
     };
 
     this.monitorPvs = function (pvs) {
+        if (self.chunkedRequestPvsCount > 0) {
+            var i, j, chunk;
+            for (i = 0, j = pvs.length; i < j; i += self.chunkedRequestPvsCount) {
+                chunk = pvs.slice(i, i + self.chunkedRequestPvsCount);
+                this.monitorPvsChunk(chunk);
+            }
+        } else {
+            this.monitorPvsChunk(pvs);
+        }
+    };
+
+    this.monitorPvsChunk = function (pvs) {
         var msg = {type: 'monitor', pvs: pvs};
         socket.send(JSON.stringify(msg));
     };
 
     this.clearPvs = function (pvs) {
+        if (self.chunkedRequestPvsCount > 0) {
+            var i, j, chunk;
+            for (i = 0, j = pvs.length; i < j; i += self.chunkedRequestPvsCount) {
+                chunk = pvs.slice(i, i + self.chunkedRequestPvsCount);
+                this.clearPvsChunk(chunk);
+            }
+        } else {
+            this.clearPvsChunk(pvs);
+        }
+    };
+
+    this.clearPvsChunk = function (pvs) {
         var msg = {type: 'clear', pvs: pvs};
         socket.send(JSON.stringify(msg));
     };
