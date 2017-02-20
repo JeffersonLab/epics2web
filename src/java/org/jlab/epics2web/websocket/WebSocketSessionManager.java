@@ -3,6 +3,9 @@ package org.jlab.epics2web.websocket;
 import gov.aps.jca.dbr.DBR;
 import gov.aps.jca.dbr.DBRType;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -52,6 +55,65 @@ public class WebSocketSessionManager {
         }
     }
 
+    public void purgeStaleSessions() {
+        for (Session s : listenerMap.keySet()) {
+            purgeIfStale(s);
+        }
+    }
+
+    public void purgeIfStale(Session s) {
+        Date lastUpdated = (Date) s.getUserProperties().get("lastUpdated");
+        boolean expired = true;
+
+        Calendar cal = Calendar.getInstance();
+        cal.add(Calendar.MINUTE, -1); // Stale if no interaction for 1 minute
+
+        if (lastUpdated != null && lastUpdated.before(cal.getTime())) {
+            expired = true;
+        }
+
+        if (!s.isOpen() || expired) {
+            LOGGER.log(Level.INFO, "Expiring session: {0}", s.getId());
+            removeClient(s);
+            if (s.isOpen()) {
+                try {
+                    s.close();
+                } catch (IOException e) {
+                    LOGGER.log(Level.WARNING, "Unable to close expired session", e);
+                }
+            }
+        }
+    }
+
+    public void pingAllSessions() {
+        for (Session s : listenerMap.keySet()) {
+            try {
+                sendWsPing(s);
+            } catch (IllegalArgumentException | IOException e) {
+                LOGGER.log(Level.WARNING, "Unable to send WS ping", e);
+                removeClient(s);
+
+                if (s.isOpen()) {
+                    try {
+                        s.close();
+                    } catch (IOException e2) {
+                        LOGGER.log(Level.WARNING, "Unable to close bad session", e2);
+                    }
+                }
+            }
+        }
+    }
+
+    public void sendWsPing(Session session) throws IllegalArgumentException, IOException {
+        if (session.isOpen()) {
+            synchronized (session) {
+                session.getBasicRemote().sendPing(ByteBuffer.allocate(0));
+            }
+        } else {
+            LOGGER.log(Level.WARNING, "session is closed: {0}", session);
+        }
+    }
+
     /**
      * Parse a client request to extract a set of PVs.
      *
@@ -71,6 +133,18 @@ public class WebSocketSessionManager {
         }
 
         return pvSet;
+    }
+
+    /**
+     * Record the fact that this session is still active as of "now".
+     *
+     * @param session The Websocket Session
+     */
+    public void recordInteractionDate(Session session) {
+        if (session != null && session.isOpen()) {
+            Map<String, Object> properties = session.getUserProperties();
+            properties.put("lastUpdated", new Date());
+        }
     }
 
     /**

@@ -1,6 +1,7 @@
 package org.jlab.epics2web.websocket;
 
 import java.io.StringReader;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -16,6 +17,7 @@ import javax.websocket.OnClose;
 import javax.websocket.OnError;
 import javax.websocket.OnMessage;
 import javax.websocket.OnOpen;
+import javax.websocket.PongMessage;
 import javax.websocket.Session;
 import javax.websocket.server.ServerEndpoint;
 import org.jlab.epics2web.Application;
@@ -31,8 +33,11 @@ public class MonitorEndpoint {
     private static final Logger LOGGER = Logger.getLogger(MonitorEndpoint.class.getName());
 
     @OnOpen
-    public void open(Session session, EndpointConfig config) {
+    public void onOpen(Session session, EndpointConfig config) {
         //LOGGER.log(Level.FINEST, "open");
+        
+        Application.sessionManager.recordInteractionDate(session);
+        
         if (session != null) {
             Application.sessionManager.addClient(session);
 
@@ -76,7 +81,7 @@ public class MonitorEndpoint {
     }
 
     @OnClose
-    public void close(Session session, CloseReason reason) {
+    public void onClose(Session session, CloseReason reason) {
         //LOGGER.log(Level.FINEST, "close; Reason: {0}", reason);
         if (session != null) {
             Application.sessionManager.removeClient(session);
@@ -84,7 +89,7 @@ public class MonitorEndpoint {
     }
 
     @OnError
-    public void error(Session session, Throwable t) {
+    public void onError(Session session, Throwable t) {
         LOGGER.log(Level.WARNING, "error", t);
         if (session != null) {
             Application.sessionManager.removeClient(session);
@@ -95,8 +100,17 @@ public class MonitorEndpoint {
     }
 
     @OnMessage
+    public void onPong(PongMessage message, Session session) {
+        LOGGER.log(Level.FINEST, "WS Pong Received");
+        Application.sessionManager.recordInteractionDate(session);
+    }
+    
+    @OnMessage
     public String onMessage(String message, Session session) {
         //LOGGER.log(Level.FINEST, "Client message: {0}", message);
+        
+        Application.sessionManager.recordInteractionDate(session);
+        
         try (JsonReader reader = Json.createReader(new StringReader(message))) {
             JsonObject obj = reader.readObject();
 
@@ -122,5 +136,5 @@ public class MonitorEndpoint {
             LOGGER.log(Level.WARNING, "Unable to read client message: " + message, e);
         }
         return null;
-    }
+    } 
 }
