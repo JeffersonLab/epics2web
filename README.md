@@ -116,6 +116,7 @@ Convenience function for pong event.  If more than one callback is needed use Cl
 | pingIntervalMillis | Milliseconds to wait between pings | 8000 |
 | livenessTimoutMillis | Max milliseconds allowed for server to respond to a ping (via any message) | 2000 | 
 | reconnectWaitMillis | Milliseconds to wait after socket closed before attempting reconnect | 10000 |
+| chunkedRequestPvsCount | Max number of PV names to transmit in a monitor or clear command; 0 to disable chunking | 400 |
 
 ## Example
 
