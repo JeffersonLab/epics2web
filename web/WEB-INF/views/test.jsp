@@ -5,7 +5,7 @@
         <meta charset="UTF-8">        
         <title>epics2web - Test Connection</title>
         <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/resources/css/site.css?v=${initParam.releaseNumber}"/>
-        <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/resources/css/epics2web-1.0.0.min.css"/>        
+        <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/resources/css/epics2web.css?v=${initParam.releaseNumber}"/>        
         <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/resources/css/test.css?v=${initParam.releaseNumber}"/>
     </head>
     <body>
@@ -43,7 +43,7 @@
             </tbody>
         </table>    
         <script type="text/javascript" src="${pageContext.request.contextPath}/resources/js/jquery-1.10.2.min.js"></script>
-        <script type="text/javascript" src="${pageContext.request.contextPath}/resources/js/epics2web-1.0.0.min.js"></script>
+        <script type="text/javascript" src="${pageContext.request.contextPath}/resources/js/epics2web.js?v=${initParam.releaseNumber}"></script>
         <script type="text/javascript" src="${pageContext.request.contextPath}/resources/js/test.js?v=${initParam.releaseNumber}"></script>
     </body>
 </html>
