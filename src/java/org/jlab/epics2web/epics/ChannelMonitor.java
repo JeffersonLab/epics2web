@@ -49,10 +49,11 @@ class ChannelMonitor implements Closeable {
     private final CAJContext context;
     private final ScheduledExecutorService executor;
     private final String pv;
-    private DBR lastDbr;
+    private DBR lastDbr = null;
     private String[] enumLabels;
     private boolean initialized = false;
-    private boolean couldConnect = false;
+    private boolean disconnectedPv = false; // Set to true if connection attempt already performed, and it failed (timeout reached)
+    private boolean couldConnect = false; // Set to true if connected succesfully before timeout
 
     /**
      * Create a new ChannelMonitor for the given EPICS PV using the supplied CA Context.
@@ -86,6 +87,7 @@ class ChannelMonitor implements Closeable {
 
         DBR dbr;
         boolean init;
+        boolean disconnected;
 
         listeners.add(listener);
 
@@ -93,13 +95,17 @@ class ChannelMonitor implements Closeable {
         try {
             dbr = lastDbr;
             init = initialized;
+            disconnected = disconnectedPv;
         } finally {
             readLock.unlock();
         }
 
-        if (init) {
+        if (init || disconnected) {
             notifyPvInfo(listener);
-            notifyPvUpdate(listener, dbr);
+            
+            if(dbr != null) {
+                notifyPvUpdate(listener, dbr);
+            }
         }
     }
 
@@ -202,11 +208,12 @@ class ChannelMonitor implements Closeable {
                 public Void call() throws Exception {
                     boolean connected;
 
-                    readLock.lock();
+                    writeLock.lock();
                     try {
                         connected = couldConnect;
+                        disconnectedPv = !connected;
                     } finally {
-                        readLock.unlock();
+                        writeLock.unlock();
                     }
 
                     if (!connected) {
