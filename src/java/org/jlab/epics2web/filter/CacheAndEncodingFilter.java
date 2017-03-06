@@ -34,7 +34,7 @@ public class CacheAndEncodingFilter implements Filter {
     public static final String[] CACHEABLE_CONTENT_TYPES = new String[]{
         "text/css", "text/javascript", "application/javascript", "image/png", "image/jpeg",
         "image/jpg",
-        "image/gif", "image/icon", "image/x-icon", "image/vnd.microsoft.icon"
+        "image/gif", "image/icon", "image/x-icon", "image/vnd.microsoft.icon", "image/svg+xml"
     };
 
     static {
