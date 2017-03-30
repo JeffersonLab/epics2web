@@ -67,6 +67,13 @@ public class ChannelMonitorManager {
             Set<String> newPvSet = new HashSet<>();
 
             if (addPvSet != null) {
+                // Make sure empty string isn't included as a PV as that is invalid and is ignored
+                boolean emptyIncluded = addPvSet.remove("");
+                
+                if(emptyIncluded) {
+                    LOGGER.log(Level.FINEST, "Empty string ignored in add PV request");
+                }
+                
                 newPvSet.addAll(addPvSet);
 
                 for (String pv : addPvSet) {
