@@ -164,3 +164,4 @@ This application uses the [Channel Access for Java](http://epics-jca.sourceforge
 - [PV Monitor Runchart](https://github.com/JeffersonLab/runchart)
 - [Web Extensible Display Manager (wedm)](https://github.com/JeffersonLab/wedm)
 - [Similar Projects](https://github.com/JeffersonLab/epics2web/wiki/Similar-Projects)
+- [Technical Notes](https://github.com/JeffersonLab/epics2web/wiki/Technical-Notes)
