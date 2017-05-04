@@ -23,8 +23,13 @@ jlab.epics2web = jlab.epics2web || {};
 /* END IE CustomEvent POLYFILL */
 
 jlab.epics2web.ClientConnection = function (options) {
+    var protocol = 'ws:';
+    if (window.location.protocol === 'https:') {
+        protocol = 'wss:';
+    }
+
     var defaultOptions = {
-        url: "ws://" + window.location.host + "/epics2web/monitor",
+        url: protocol + "//" + window.location.host + "/epics2web/monitor",
         autoOpen: true, /* Will automatically connect to socket immediately instead of waiting for open function to be called */
         autoReconnect: true, /* If socket is closed, will automatically reconnect after reconnectWaitMillis */
         autoLivenessPingAndTimeout: true, /* Will ping the server every pingIntervalMillis and if no response in livenessTimeoutMillis then will close the socket as invalid */

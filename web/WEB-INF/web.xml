@@ -2,12 +2,21 @@
 <web-app version="3.1" xmlns="http://xmlns.jcp.org/xml/ns/javaee" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_3_1.xsd">
     <context-param>
         <param-name>releaseNumber</param-name>
-        <param-value>1.3.0</param-value>
+        <param-value>@VERSION@</param-value>
     </context-param>
     <context-param>
         <param-name>releaseDate</param-name>
-        <param-value>06 Mar 2017</param-value>
+        <param-value>@RELEASE_DATE@</param-value>
     </context-param>
+    <context-param>
+        <param-name>productionRelease</param-name>
+        <param-value>@PRODUCTION_RELEASE@</param-value>
+    </context-param>    
+    <env-entry>
+        <env-entry-name>productionRelease</env-entry-name>
+        <env-entry-type>java.lang.String</env-entry-type>
+        <env-entry-value>@PRODUCTION_RELEASE@</env-entry-value>
+    </env-entry> 
     <context-param>
         <param-name>org.apache.tomcat.websocket.textBufferSize</param-name>
         <param-value>16384</param-value>

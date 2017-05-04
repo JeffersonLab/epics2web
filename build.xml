@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="epics2web" default="clean-build" basedir=".">    
+    <property name="project.release.version" value="1.4.0"/>
+    <property name="project.release.date" value="04 May 2017"/>
+    <property name="project.release.production" value="true"/>
+    <property environment="env"/>   
+    <fail unless="env.CATALINA_HOME" message="Environment variable CATALINA_HOME must be set in order to include Tomcat libraries in classpath"/>
+    <property name="src.dir" value="src/java"/>
+    <property name="build.dir" value="build"/>
+    <property name="classes.dir" value="${build.dir}/classes"/>
+    <property name="dist.dir" value="dist"/>
+    <property name="lib.dir" value="lib"/>
+    <property name="config.dir" value="config"/>
+    <property name="tomcat.lib.dir" value="${env.CATALINA_HOME}/lib"/>
+    <property name="doc.dir" value="doc"/>
+    <property name="dist.dir" value="dist"/>
+    <property name="dist.war" value="${dist.dir}/epics2web.war"/>
+    <path id="project.class.path">       
+        <pathelement path="${java.class.path}"/>
+        <fileset dir="${lib.dir}">
+            <include name="*.jar"/>
+        </fileset> 
+        <fileset dir="${tomcat.lib.dir}">
+            <include name="*.jar"/>
+        </fileset>       
+    </path>        
+    <target name="war" depends="compile">
+        <mkdir dir="${dist.dir}"/>     
+        <copy todir="${build.dir}/web">
+            <fileset dir="web"/>
+        </copy>  
+        <copy file="web/WEB-INF/web.xml" toFile="${build.dir}/web/WEB-INF/web.xml" overwrite="true" force="true">
+            <filterset>
+                <filter token="VERSION" value="${project.release.version}"/>
+                <filter token="RELEASE_DATE" value="${project.release.date}"/>
+                <filter token="PRODUCTION_RELEASE" value="${project.release.production}"/>
+            </filterset>
+        </copy>
+        <java jar="build-lib/yuicompressor-2.4.8.jar" fork="true">
+            <arg value="-o"/>
+            <arg value="${build.dir}/web/resources/css/epics2web-${project.release.version}.min.css"/>
+            <arg value="${build.dir}/web/resources/css/epics2web.css"/>
+        </java>       
+        <java jar="build-lib/yuicompressor-2.4.8.jar" fork="true">
+            <arg value="-o"/>
+            <arg value="${build.dir}/web/resources/js/epics2web-${project.release.version}.min.js"/>
+            <arg value="${build.dir}/web/resources/js/epics2web.js"/>
+        </java>          
+        <war destfile="${dist.war}" basedir="${build.dir}/web" webxml="${build.dir}/web/WEB-INF/web.xml">
+            <lib dir="${lib.dir}"/>
+            <classes dir="${classes.dir}"/>
+        </war>
+    </target>
+    <target name="clean">
+        <delete dir="${build.dir}"/>
+        <delete dir="${dist.dir}"/>
+    </target>    
+    <target name="compile">
+        <mkdir dir="${classes.dir}"/>
+        <javac srcdir="${src.dir}" destdir="${classes.dir}" includeantruntime="false" source="1.8" debug="true" encoding="UTF-8">
+            <classpath refid="project.class.path"/>
+        </javac>
+        <copy todir="${classes.dir}">
+            <fileset dir="${src.dir}" excludes="**/*.java"/>
+        </copy>        
+    </target>    
+    <target name="doc">
+        <javadoc sourcepath="${src.dir}" destdir="${dist.dir}/javadoc" overview="${src.dir}/overview.html">
+            <classpath refid="project.class.path"/>
+            <header>epics2web Version ${project.release.version}</header>
+            <doctitle>epics2web Overview</doctitle>
+            <link href="http://docs.oracle.com/javase/8/docs/api/"/>
+        </javadoc>
+    </target>    
+    <target name="clean-build" depends="clean,compile"/>
+</project>
