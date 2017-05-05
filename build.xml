@@ -40,12 +40,14 @@
             <arg value="-o"/>
             <arg value="${build.dir}/web/resources/css/epics2web-${project.release.version}.min.css"/>
             <arg value="${build.dir}/web/resources/css/epics2web.css"/>
-        </java>       
+        </java>
+        <copy file="${build.dir}/web/resources/css/epics2web-${project.release.version}.min.css" toFile="${build.dir}/web/resources/css/epics2web.min.css"></copy>       
         <java jar="build-lib/yuicompressor-2.4.8.jar" fork="true">
             <arg value="-o"/>
             <arg value="${build.dir}/web/resources/js/epics2web-${project.release.version}.min.js"/>
             <arg value="${build.dir}/web/resources/js/epics2web.js"/>
         </java>          
+        <copy file="${build.dir}/web/resources/js/epics2web-${project.release.version}.min.js" toFile="${build.dir}/web/resources/js/epics2web.min.js"></copy> 
         <war destfile="${dist.war}" basedir="${build.dir}/web" webxml="${build.dir}/web/WEB-INF/web.xml">
             <lib dir="${lib.dir}"/>
             <classes dir="${classes.dir}"/>
