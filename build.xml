@@ -49,7 +49,7 @@
         </java>          
         <copy file="${build.dir}/web/resources/js/epics2web-${project.release.version}.min.js" toFile="${build.dir}/web/resources/js/epics2web.min.js"></copy> 
         <war destfile="${dist.war}" basedir="${build.dir}/web" webxml="${build.dir}/web/WEB-INF/web.xml">
-            <lib dir="${lib.dir}"/>
+            <lib dir="${lib.dir}" includes="*.jar"/>
             <classes dir="${classes.dir}"/>
         </war>
     </target>
