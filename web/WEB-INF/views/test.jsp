@@ -1,11 +1,19 @@
 <%@page contentType="text/html" pageEncoding="UTF-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <!DOCTYPE html>
 <html>
     <head>
         <meta charset="UTF-8">        
         <title>epics2web - Test Connection</title>
         <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/resources/css/site.css?v=${initParam.releaseNumber}"/>
-        <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/resources/css/epics2web.css?v=${initParam.releaseNumber}"/>        
+        <c:choose>
+            <c:when test="${initParam.productionRelease eq 'true'}">
+                <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/resources/css/epics2web.min.css?v=${initParam.releaseNumber}"/> 
+            </c:when>
+            <c:otherwise>
+                <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/resources/css/epics2web.css?v=${initParam.releaseNumber}"/> 
+            </c:otherwise>
+        </c:choose>
         <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/resources/css/test.css?v=${initParam.releaseNumber}"/>
     </head>
     <body>
@@ -43,7 +51,14 @@
             </tbody>
         </table>    
         <script type="text/javascript" src="${pageContext.request.contextPath}/resources/js/jquery-1.10.2.min.js"></script>
-        <script type="text/javascript" src="${pageContext.request.contextPath}/resources/js/epics2web.js?v=${initParam.releaseNumber}"></script>
+        <c:choose>
+            <c:when test="${initParam.productionRelease eq 'true'}">
+                <script type="text/javascript" src="${pageContext.request.contextPath}/resources/js/epics2web.min.js?v=${initParam.releaseNumber}"></script>
+            </c:when>
+            <c:otherwise>
+                <script type="text/javascript" src="${pageContext.request.contextPath}/resources/js/epics2web.js?v=${initParam.releaseNumber}"></script>
+            </c:otherwise>
+        </c:choose>
         <script type="text/javascript" src="${pageContext.request.contextPath}/resources/js/test.js?v=${initParam.releaseNumber}"></script>
     </body>
 </html>
