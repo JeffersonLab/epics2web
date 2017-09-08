@@ -151,7 +151,7 @@ con.oninfo = function (e) {
 
 ## Installation
    1. Download [Apache Tomcat](http://tomcat.apache.org/)
-   1. Download epics2web.war and drop it into the webapps directory
+   1. Download [epics2web.war](https://github.com/JeffersonLab/epics2web/releases) and drop it into the webapps directory
    1. Copy jar files from project lib directory to Tomcat lib directory
    1. Start Tomcat and navigate your web browser to localhost:8080/epics2web
 
