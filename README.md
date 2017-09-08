@@ -152,6 +152,7 @@ con.oninfo = function (e) {
 ## Installation
    1. Download [Apache Tomcat](http://tomcat.apache.org/)
    1. Download epics2web.war and drop it into the webapps directory
+   1. Copy jar files from project lib directory to Tomcat lib directory
    1. Start Tomcat and navigate your web browser to localhost:8080/epics2web
 
 *Note:* epics2web also works and was tested with GlassFish, and presumably works with WildFly or any other Java web application server that supports web sockets.
