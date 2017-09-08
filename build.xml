@@ -14,7 +14,7 @@
     <property name="tomcat.lib.dir" value="${env.CATALINA_HOME}/lib"/>
     <property name="doc.dir" value="doc"/>
     <property name="dist.dir" value="dist"/>
-    <property name="dist.war" value="${dist.dir}/epics2web.war"/>
+    <property name="dist.war" value="${dist.dir}/${ant.project.name}.war"/>
     <path id="project.class.path">       
         <pathelement path="${java.class.path}"/>
         <fileset dir="${lib.dir}">
@@ -38,16 +38,16 @@
         </copy>
         <java jar="build-lib/yuicompressor-2.4.8.jar" fork="true">
             <arg value="-o"/>
-            <arg value="${build.dir}/web/resources/css/epics2web-${project.release.version}.min.css"/>
-            <arg value="${build.dir}/web/resources/css/epics2web.css"/>
+            <arg value="${build.dir}/web/resources/css/${ant.project.name}-${project.release.version}.min.css"/>
+            <arg value="${build.dir}/web/resources/css/${ant.project.name}.css"/>
         </java>
-        <copy file="${build.dir}/web/resources/css/epics2web-${project.release.version}.min.css" toFile="${build.dir}/web/resources/css/epics2web.min.css"></copy>       
+        <copy file="${build.dir}/web/resources/css/${ant.project.name}-${project.release.version}.min.css" toFile="${build.dir}/web/resources/css/${ant.project.name}.min.css"></copy>       
         <java jar="build-lib/yuicompressor-2.4.8.jar" fork="true">
             <arg value="-o"/>
-            <arg value="${build.dir}/web/resources/js/epics2web-${project.release.version}.min.js"/>
-            <arg value="${build.dir}/web/resources/js/epics2web.js"/>
+            <arg value="${build.dir}/web/resources/js/${ant.project.name}-${project.release.version}.min.js"/>
+            <arg value="${build.dir}/web/resources/js/${ant.project.name}.js"/>
         </java>          
-        <copy file="${build.dir}/web/resources/js/epics2web-${project.release.version}.min.js" toFile="${build.dir}/web/resources/js/epics2web.min.js"></copy> 
+        <copy file="${build.dir}/web/resources/js/${ant.project.name}-${project.release.version}.min.js" toFile="${build.dir}/web/resources/js/${ant.project.name}.min.js"></copy> 
         <war destfile="${dist.war}" basedir="${build.dir}/web" webxml="${build.dir}/web/WEB-INF/web.xml">
             <lib dir="${lib.dir}" includes="*.jar"/>
             <classes dir="${classes.dir}"/>
@@ -69,8 +69,8 @@
     <target name="doc">
         <javadoc sourcepath="${src.dir}" destdir="${dist.dir}/javadoc" overview="${src.dir}/overview.html">
             <classpath refid="project.class.path"/>
-            <header>epics2web Version ${project.release.version}</header>
-            <doctitle>epics2web Overview</doctitle>
+            <header>${ant.project.name} Version ${project.release.version}</header>
+            <doctitle>${ant.project.name} Overview</doctitle>
             <link href="http://docs.oracle.com/javase/8/docs/api/"/>
         </javadoc>
     </target>    
