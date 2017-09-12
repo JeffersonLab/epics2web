@@ -2,7 +2,7 @@
 EPICS CA WebSocket Gateway
 
 ## Introduction
-Provides a websocket API to query [EPICS](http://www.aps.anl.gov/epics/) channel access.
+Provides a JavaScript API to query [EPICS](http://www.aps.anl.gov/epics/) Channel Access over WebSockets.
 
 Overview Page
 ![Overview](/doc/img/Overview.png?raw=true "Overview")
