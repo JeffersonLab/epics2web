@@ -1,5 +1,5 @@
 # epics2web
-EPICS Websocket Gateway
+EPICS CA WebSocket Gateway
 
 ## Introduction
 Provides a websocket API to query [EPICS](http://www.aps.anl.gov/epics/) channel access.
