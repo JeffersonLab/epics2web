@@ -1,8 +1,8 @@
 # epics2web
-EPICS CA WebSocket Gateway
+EPICS CA Web Socket Gateway
 
 ## Introduction
-Provides a JavaScript API to query [EPICS](http://www.aps.anl.gov/epics/) Channel Access over WebSockets.
+Provides a JavaScript API to query [EPICS](http://www.aps.anl.gov/epics/) Channel Access over Web Sockets.
 
 Overview Page
 ![Overview](/doc/img/Overview.png?raw=true "Overview")
