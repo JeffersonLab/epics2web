@@ -1,3 +1,5 @@
+--- epics2web ---
+
 Copyright (c) 2017 Jefferson Lab
 
 All Rights Reserved. 
@@ -15,3 +17,25 @@ THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
 PURPOSE. THE SOFTWARE AND ACCOMPANYING DOCUMENTATION, IF ANY, PROVIDED
 HEREUNDER IS PROVIDED "AS IS". JLAB HAS NO OBLIGATION TO PROVIDE MAINTENANCE,
 SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+
+--- Dependencies ----
+
+YUICompressor
+File: yuicompressor-2.4.8.jar
+License: BSD License
+Project URL: https://github.com/yui/yuicompressor
+
+JSTL
+File: jstl-1.2.jar
+License: CDDL 1.1
+Project URL: https://github.com/javaee/jstl-api
+
+jquery
+File: jquery-1.10.2.min.js
+License: MIT
+Project URL: https://github.com/jquery/jquery
+
+Java Standard JSON Processing API
+File: javax.json-1.0.4.jar
+License: CDDL 1.1
+Project URL: https://github.com/javaee/jsonp
