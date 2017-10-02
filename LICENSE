@@ -30,12 +30,22 @@ File: jstl-1.2.jar
 License: CDDL 1.1
 Project URL: https://github.com/javaee/jstl-api
 
-jquery
-File: jquery-1.10.2.min.js
-License: MIT
-Project URL: https://github.com/jquery/jquery
-
 Java Standard JSON Processing API
 File: javax.json-1.0.4.jar
 License: CDDL 1.1
 Project URL: https://github.com/javaee/jsonp
+
+Channel Access Java Implementation
+File: caj-1.1.15.jar
+License: GPL 3
+Project URL: http://epics-jca.sourceforge.net/caj/
+
+Java Channel Access Interfaces
+File: jca-2.3.6.jar
+License: EPICS Open License
+Project URL: http://epics-jca.sourceforge.net/jca/
+
+jquery
+File: jquery-1.10.2.min.js
+License: MIT
+Project URL: https://github.com/jquery/jquery
