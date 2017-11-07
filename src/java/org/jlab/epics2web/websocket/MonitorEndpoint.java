@@ -72,14 +72,16 @@ public class MonitorEndpoint {
                     }
                 }
 
+                String name = "";
                 String q = session.getQueryString();
-                String[] tokens = q.split("=");
-                String name = null;
-                if (tokens.length == 2) {
-                    try {
-                        name = URLDecoder.decode(tokens[1], "UTF-8");
-                    } catch (UnsupportedEncodingException e) {
-                        LOGGER.log(Level.WARNING, "JVM doesn't support UTF-8 so can't decode clientName parameter", e);
+                if (q != null) {
+                    String[] tokens = q.split("=");
+                    if (tokens.length == 2) {
+                        try {
+                            name = URLDecoder.decode(tokens[1], "UTF-8");
+                        } catch (UnsupportedEncodingException e) {
+                            LOGGER.log(Level.WARNING, "JVM doesn't support UTF-8 so can't decode clientName parameter", e);
+                        }
                     }
                 }
 
