@@ -1,7 +1,8 @@
 package org.jlab.epics2web.websocket;
 
 import java.io.StringReader;
-import java.util.Date;
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -24,7 +25,7 @@ import org.jlab.epics2web.Application;
 
 /**
  * Controller for the EPICS web socket monitor.
- * 
+ *
  * @author ryans
  */
 @ServerEndpoint(value = "/monitor", configurator = AuditServerEndpointConfigurator.class)
@@ -35,9 +36,9 @@ public class MonitorEndpoint {
     @OnOpen
     public void onOpen(Session session, EndpointConfig config) {
         //LOGGER.log(Level.FINEST, "open");
-        
+
         Application.sessionManager.recordInteractionDate(session);
-        
+
         if (session != null) {
             Application.sessionManager.addClient(session);
 
@@ -71,8 +72,20 @@ public class MonitorEndpoint {
                     }
                 }
 
+                String q = session.getQueryString();
+                String[] tokens = q.split("=");
+                String name = null;
+                if (tokens.length == 2) {
+                    try {
+                        name = URLDecoder.decode(tokens[1], "UTF-8");
+                    } catch (UnsupportedEncodingException e) {
+                        LOGGER.log(Level.WARNING, "JVM doesn't support UTF-8 so can't decode clientName parameter", e);
+                    }
+                }
+
                 session.getUserProperties().put("agent", agent);
                 session.getUserProperties().put("ip", ip);
+                session.getUserProperties().put("name", name);
 
                 // Try to prevent classloader leak
                 WebSocketAuditContext.setCurrentInstance(null);
@@ -104,13 +117,13 @@ public class MonitorEndpoint {
         LOGGER.log(Level.FINEST, "WS Pong Received");
         Application.sessionManager.recordInteractionDate(session);
     }
-    
+
     @OnMessage
     public String onMessage(String message, Session session) {
         //LOGGER.log(Level.FINEST, "Client message: {0}", message);
-        
+
         Application.sessionManager.recordInteractionDate(session);
-        
+
         try (JsonReader reader = Json.createReader(new StringReader(message))) {
             JsonObject obj = reader.readObject();
 
@@ -136,5 +149,5 @@ public class MonitorEndpoint {
             LOGGER.log(Level.WARNING, "Unable to read client message: " + message, e);
         }
         return null;
-    } 
+    }
 }

@@ -7,7 +7,7 @@ jlab.epics2web = jlab.epics2web || {};
 jlab.epics2web.test = jlab.epics2web.test || {};
 
 jlab.epics2web.test.con = null;
-jlab.epics2web.test.options = {};
+jlab.epics2web.test.options = {clientName: 'epics2web test page'};
 jlab.epics2web.test.pvToWidgetMap = {};
 jlab.epics2web.test.MAX_MONITORS = 100;
 jlab.epics2web.test.enumLabelMap = {};

@@ -37,7 +37,8 @@ jlab.epics2web.ClientConnection = function (options) {
         pingIntervalMillis: 3000, /* Time to wait between pings */
         livenessTimoutMillis: 2000, /* Max time allowed for server to respond to a ping (via any message) */
         reconnectWaitMillis: 1000, /* Time to wait after socket closed before attempting reconnect */
-        chunkedRequestPvsCount: 400 /* Max number of PVs to transmit in a chunked monitor or clear command; 0 to disable chunking */
+        chunkedRequestPvsCount: 400, /* Max number of PVs to transmit in a chunked monitor or clear command; 0 to disable chunking */
+        clientName: null /* Client name is an optional string used for informational/debugging purposes (appears in console) */
     };
 
     if (!options) {
@@ -131,7 +132,13 @@ jlab.epics2web.ClientConnection = function (options) {
             var event = new CustomEvent('connecting');
             eventElem.dispatchEvent(event);
 
-            socket = new WebSocket(this.url);
+            let u = this.url;
+            
+            if(this.clientName !== null) {
+                u = u + '?clientName=' + encodeURIComponent(this.clientName);
+            }
+
+            socket = new WebSocket(u);
 
             socket.onerror = function (event) {
                 console.log("server connection error");
