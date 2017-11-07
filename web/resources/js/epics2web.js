@@ -38,7 +38,7 @@ jlab.epics2web.ClientConnection = function (options) {
         livenessTimoutMillis: 2000, /* Max time allowed for server to respond to a ping (via any message) */
         reconnectWaitMillis: 1000, /* Time to wait after socket closed before attempting reconnect */
         chunkedRequestPvsCount: 400, /* Max number of PVs to transmit in a chunked monitor or clear command; 0 to disable chunking */
-        clientName: null /* Client name is an optional string used for informational/debugging purposes (appears in console) */
+        clientName: window.location.href /* Client name is a string used for informational/debugging purposes (appears in console) */
     };
 
     if (!options) {
