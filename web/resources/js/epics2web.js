@@ -34,7 +34,7 @@ jlab.epics2web.ClientConnection = function (options) {
         autoReconnect: true, /* If socket is closed, will automatically reconnect after reconnectWaitMillis */
         autoLivenessPingAndTimeout: true, /* Will ping the server every pingIntervalMillis and if no response in livenessTimeoutMillis then will close the socket as invalid */
         autoDisplayClasses: true, /* As connect state changes will hide and show elements with corresponding state classes: ws-disconnected, ws-connecting, ws-connected */
-        pingIntervalMillis: 8000, /* Time to wait between pings */
+        pingIntervalMillis: 3000, /* Time to wait between pings */
         livenessTimoutMillis: 2000, /* Max time allowed for server to respond to a ping (via any message) */
         reconnectWaitMillis: 1000, /* Time to wait after socket closed before attempting reconnect */
         chunkedRequestPvsCount: 400 /* Max number of PVs to transmit in a chunked monitor or clear command; 0 to disable chunking */
