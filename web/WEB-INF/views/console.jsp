@@ -1,5 +1,6 @@
 <%@page contentType="text/html" pageEncoding="UTF-8"%>
 <%@taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
+<%@taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt"%> 
 <!DOCTYPE html>
 <html>
     <head>
@@ -11,6 +12,27 @@
     <body>
         <h1>epics2web</h1>
         <h2>EPICS CA Web Monitor Console</h2>
+        <h3>Summary</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Total Clients (Sessions)</th>
+                    <th>Total PVs (Duplicates Allowed)</th>
+                    <th>Unique PVs (Monitors)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <c:set var="totalPvs" value="0"/>
+                <c:forEach items="${clientMap}" var="client">
+                    <c:set var="totalPvs" value="${totalPvs + client.value.size()}"/>
+                </c:forEach>
+                <tr>
+                    <td><fmt:formatNumber value="${clientMap.size()}"/></td>
+                    <td><fmt:formatNumber value="${totalPvs}"/></td>
+                    <td><fmt:formatNumber value="${monitorMap.size()}"/></td>
+                </tr>                    
+            </tbody>
+        </table>        
         <h3>Clients (sessions)</h3>
         <table>
             <thead>
