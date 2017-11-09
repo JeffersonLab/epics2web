@@ -4,13 +4,16 @@ EPICS CA Web Socket Gateway
 ## Introduction
 Provides a JavaScript API to query [EPICS](http://www.aps.anl.gov/epics/) Channel Access over Web Sockets.
 
-Overview Page
+### Overview Page
 ![Overview](/doc/img/Overview.png?raw=true "Overview")
 
-Test Page
-![Test](/doc/img/Test.png?raw=true "Test")
+### Get Test Page
+![GetTest](/doc/img/GetTest.png?raw=true "GetTest")
 
-Console Page
+### Monitor Test Page
+![MonitorTest](/doc/img/MonitorTest.png?raw=true "MonitorTest")
+
+### Monitor Console Page
 ![Console](/doc/img/Console.png?raw=true "Console")
 
 ## API
