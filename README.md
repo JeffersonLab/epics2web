@@ -130,10 +130,11 @@ Convenience function for pong event.  If more than one callback is needed use Cl
 | autoReconnect | If socket is closed, will automatically reconnect after reconnectWaitMillis | true | 
 | autoLivenessPingAndTimeout | Will ping the server every pingIntervalMillis and if no response in livenessTimeoutMillis then will close the socket as invalid | true | 
 | autoDisplayClasses | As connect state changes will hide and show elements with corresponding state classes: ws-disconnected, ws-connecting, ws-connected | true |
-| pingIntervalMillis | Milliseconds to wait between pings | 8000 |
+| pingIntervalMillis | Milliseconds to wait between pings | 3000 |
 | livenessTimoutMillis | Max milliseconds allowed for server to respond to a ping (via any message) | 2000 | 
-| reconnectWaitMillis | Milliseconds to wait after socket closed before attempting reconnect | 10000 |
+| reconnectWaitMillis | Milliseconds to wait after socket closed before attempting reconnect | 1000 |
 | chunkedRequestPvsCount | Max number of PV names to transmit in a monitor or clear command; 0 to disable chunking | 400 |
+| clientName | Name of client application | window.location.href |
 
 ## Monitor Example
 
