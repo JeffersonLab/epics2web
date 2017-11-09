@@ -2,7 +2,7 @@
 EPICS CA Web Gateway
 
 ## Introduction
-Provides a JavaScript API to monitor [EPICS](http://www.aps.anl.gov/epics/) Channel Access over Web Sockets.  A REST-style caget web service endpoint is also provided.
+Provides a JavaScript API to monitor [EPICS](http://www.aps.anl.gov/epics/) Channel Access over Web Sockets.  A caget JSON web service endpoint is also provided.
 
 ### Overview Page
 ![Overview](/doc/img/Overview.png?raw=true "Overview")
