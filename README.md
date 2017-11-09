@@ -2,7 +2,7 @@
 EPICS CA Web Socket Gateway
 
 ## Introduction
-Provides a JavaScript API to query [EPICS](http://www.aps.anl.gov/epics/) Channel Access over Web Sockets.
+Provides a JavaScript API to query [EPICS](http://www.aps.anl.gov/epics/) Channel Access over Web Sockets.  A REST-style caget web service endpoint is also provided.
 
 ### Overview Page
 ![Overview](/doc/img/Overview.png?raw=true "Overview")
@@ -16,7 +16,21 @@ Provides a JavaScript API to query [EPICS](http://www.aps.anl.gov/epics/) Channe
 ### Monitor Console Page
 ![Console](/doc/img/Console.png?raw=true "Console")
 
-## API
+## Get API
+
+Submit one or more parameters of name "pv" to the "caget" URL.  The response is a JSON object of the form:
+
+Success:
+```JavaScript
+{data: [{name: <name>, value: <value>},...]}
+```
+
+Failure:
+```JavaScript
+{error: <error-reason>}
+```
+
+## Monitor API
 
 ### Methods
 
@@ -121,7 +135,7 @@ Convenience function for pong event.  If more than one callback is needed use Cl
 | reconnectWaitMillis | Milliseconds to wait after socket closed before attempting reconnect | 10000 |
 | chunkedRequestPvsCount | Max number of PV names to transmit in a monitor or clear command; 0 to disable chunking | 400 |
 
-## Example
+## Monitor Example
 
 ```JavaScript
 var options = {},
