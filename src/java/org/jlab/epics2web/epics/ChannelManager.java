@@ -1,10 +1,16 @@
 package org.jlab.epics2web.epics;
 
+import com.cosylab.epics.caj.CAJChannel;
 import com.cosylab.epics.caj.CAJContext;
+import gov.aps.jca.CAException;
+import gov.aps.jca.TimeoutException;
+import gov.aps.jca.dbr.DBR;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
@@ -13,10 +19,18 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.json.Json;
+import javax.json.JsonObjectBuilder;
 
-public class ChannelMonitorManager {
+public class ChannelManager {
 
-    private static final Logger LOGGER = Logger.getLogger(ChannelMonitorManager.class.getName());
+    /**
+     * Number of seconds to wait for IO operations before a timeout exception
+     * occurs.
+     */
+    public static final double PEND_TIMEOUT_SECONDS = 2.0d;
+
+    private static final Logger LOGGER = Logger.getLogger(ChannelManager.class.getName());
 
     private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
     private final Lock readLock = rwLock.readLock();
@@ -34,14 +48,112 @@ public class ChannelMonitorManager {
      * @param context EPICS channel access context
      * @param executor Thread pool for connection timeout
      */
-    public ChannelMonitorManager(CAJContext context, ScheduledExecutorService executor) {
+    public ChannelManager(CAJContext context, ScheduledExecutorService executor) {
         this.context = context;
         this.executor = executor;
     }
 
+    public void addValueToJSON(JsonObjectBuilder builder, DBR dbr) {
+        if (dbr.isDOUBLE()) {
+            double value = ((gov.aps.jca.dbr.DOUBLE) dbr).getDoubleValue()[0];
+            builder.add("value", value);
+        } else if (dbr.isFLOAT()) {
+            float value = ((gov.aps.jca.dbr.FLOAT) dbr).getFloatValue()[0];
+            builder.add("value", value);
+        } else if (dbr.isINT()) {
+            int value = ((gov.aps.jca.dbr.INT) dbr).getIntValue()[0];
+            builder.add("value", value);
+        } else if (dbr.isSHORT()) {
+            short value = ((gov.aps.jca.dbr.SHORT) dbr).getShortValue()[0];
+            builder.add("value", value);
+        } else if (dbr.isENUM()) {
+            short value = ((gov.aps.jca.dbr.ENUM) dbr).getEnumValue()[0];
+            builder.add("value", value);
+        } else if (dbr.isBYTE()) {
+            byte value = ((gov.aps.jca.dbr.BYTE) dbr).getByteValue()[0];
+            builder.add("value", value);
+        } else {
+            String value = ((gov.aps.jca.dbr.STRING) dbr).getStringValue()[0];
+            builder.add("value", value);
+        }        
+    }
+    
     /**
-     * Registers a PV monitor on the supplied PV for the given listener. Equivalent to calling
-     * addPvs with a set of one PV.
+     * Perform a synchronous (blocking) CA-GET request of the given PV.
+     *
+     * @param pv The EPICS CA PV name
+     * @return The EPICS DataBaseRecord
+     * @throws CAException If unable to perform the CA-GET due to IO
+     * @throws TimeoutException If unable to perform the CA-GET in a timely
+     * fashion
+     */
+    public DBR get(String pv) throws CAException, TimeoutException {
+
+        CAJChannel channel = null;
+        DBR dbr = null;
+
+        try {
+            channel = (CAJChannel) context.createChannel(pv);
+
+            context.pendIO(PEND_TIMEOUT_SECONDS);
+
+            dbr = channel.get();
+
+            context.pendIO(PEND_TIMEOUT_SECONDS);
+        } finally {
+            if (channel != null) {
+                channel.destroy();
+            }
+        }
+
+        return dbr;
+    }
+
+    /**
+     * Perform a synchronous (blocking) CA-GET request of the given PVs.
+     *
+     * @param pvs The EPICS CA PV names
+     * @return The EPICS DataBaseRecord
+     * @throws CAException If unable to perform the CA-GET due to IO
+     * @throws TimeoutException If unable to perform the CA-GET in a timely
+     * fashion
+     */
+    public List<DBR> get(String[] pvs) throws CAException, TimeoutException {
+
+        // TODO: If we were really clever we could check if a PV is currently being monitored and just return the most recent value.
+        
+        List<DBR> dbrList = new ArrayList<>();
+
+        if (pvs != null && pvs.length > 0) {
+            CAJChannel[] channels = new CAJChannel[pvs.length];
+
+            try {
+                for (int i = 0; i < pvs.length; i++) {
+                    channels[i] = (CAJChannel) context.createChannel(pvs[i]);
+                }
+
+                context.pendIO(PEND_TIMEOUT_SECONDS);
+
+                for (int i = 0; i < pvs.length; i++) {
+                    dbrList.add(channels[i].get());
+                }
+
+                context.pendIO(PEND_TIMEOUT_SECONDS);
+            } finally {
+                for (int i = 0; i < pvs.length; i++) {
+                    if (channels[i] != null) {
+                        channels[i].destroy();
+                    }
+                }
+            }
+        }
+
+        return dbrList;
+    }
+
+    /**
+     * Registers a PV monitor on the supplied PV for the given listener.
+     * Equivalent to calling addPvs with a set of one PV.
      *
      * @param listener The PvListener
      * @param pv The EPICS PV name
@@ -53,10 +165,11 @@ public class ChannelMonitorManager {
     }
 
     /**
-     * Registers PV monitors on the supplied PVs for the given listener. Note that internally only a
-     * single monitor is used for any given PV. PVs for which the given listener is already
-     * listening to are skipped (duplicate PVs are ignored). There is no need to call addListener
-     * before calling this method.
+     * Registers PV monitors on the supplied PVs for the given listener. Note
+     * that internally only a single monitor is used for any given PV. PVs for
+     * which the given listener is already listening to are skipped (duplicate
+     * PVs are ignored). There is no need to call addListener before calling
+     * this method.
      *
      * @param listener The PvListener to receive notifications
      * @param addPvSet The set of PVs to monitor
@@ -69,11 +182,11 @@ public class ChannelMonitorManager {
             if (addPvSet != null) {
                 // Make sure empty string isn't included as a PV as that is invalid and is ignored
                 boolean emptyIncluded = addPvSet.remove("");
-                
-                if(emptyIncluded) {
+
+                if (emptyIncluded) {
                     LOGGER.log(Level.FINEST, "Empty string ignored in add PV request");
                 }
-                
+
                 newPvSet.addAll(addPvSet);
 
                 for (String pv : addPvSet) {
@@ -131,10 +244,12 @@ public class ChannelMonitorManager {
     }
 
     /**
-     * A convenience method to add a listener without registering any PVs to monitor. This is a rare
-     * use-case and is equivalent to calling addPvs with a null set of PVs.
+     * A convenience method to add a listener without registering any PVs to
+     * monitor. This is a rare use-case and is equivalent to calling addPvs with
+     * a null set of PVs.
      *
-     * Allowing a listener without any PVs registered may be deprecated in the future.
+     * Allowing a listener without any PVs registered may be deprecated in the
+     * future.
      *
      * @param listener The PvListener
      */
@@ -150,8 +265,8 @@ public class ChannelMonitorManager {
     }
 
     /**
-     * Removes a listener from channels and if no listeners remain on a given channel then closes
-     * the channel.
+     * Removes a listener from channels and if no listeners remain on a given
+     * channel then closes the channel.
      *
      * @param listener The PvListener
      * @param pvList The PV list (and indirectly the channel list)
@@ -179,7 +294,8 @@ public class ChannelMonitorManager {
     }
 
     /**
-     * Removes the specified listener and unregisters any PVs the listener was interested in.
+     * Removes the specified listener and unregisters any PVs the listener was
+     * interested in.
      *
      * @param listener The PvListener
      */
@@ -194,9 +310,9 @@ public class ChannelMonitorManager {
         } finally {
             writeLock.unlock();
         }
-        
+
         // Don't do this while holding writeLock above since this method could be called by monitorChanged or from websocket close!
-        removeFromChannels(listener, pvSet);        
+        removeFromChannels(listener, pvSet);
     }
 
     /**
@@ -219,7 +335,8 @@ public class ChannelMonitorManager {
     }
 
     /**
-     * Returns an unmodifiable map of listeners to their PVs for informational purposes.
+     * Returns an unmodifiable map of listeners to their PVs for informational
+     * purposes.
      *
      * @return The listener to PVs map
      */

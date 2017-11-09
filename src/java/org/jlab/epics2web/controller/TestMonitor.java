@@ -12,8 +12,8 @@ import javax.servlet.http.HttpServletResponse;
  * 
  * @author ryans
  */
-@WebServlet(name = "Test", urlPatterns = {"/test"})
-public class Test extends HttpServlet {    
+@WebServlet(name = "TestMonitor", urlPatterns = {"/test-camonitor"})
+public class TestMonitor extends HttpServlet {    
     
     /**
      * Handles the HTTP
@@ -28,6 +28,6 @@ public class Test extends HttpServlet {
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         
-        request.getRequestDispatcher("/WEB-INF/views/test.jsp").forward(request, response);
+        request.getRequestDispatcher("/WEB-INF/views/test-camonitor.jsp").forward(request, response);
     }
 }

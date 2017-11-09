@@ -13,13 +13,15 @@
         <table>
             <thead>
                 <tr>
-                    <th>Test Connection</th>
+                    <th>CA Get</th>
+                    <th>CA Monitor</th>
                     <th>CA Monitor Console</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td><a href="test">Test</a></td>
+                    <td><a href="test-caget">Test</a></td>
+                    <td><a href="test-camonitor">Test</a></td>
                     <td><a href="console">Console</a></td>
                 </tr>
             </tbody>

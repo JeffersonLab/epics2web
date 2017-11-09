@@ -11,7 +11,7 @@ import javax.servlet.http.HttpServletResponse;
 import javax.websocket.Session;
 import org.jlab.epics2web.Application;
 import org.jlab.epics2web.websocket.WebSocketSessionManager;
-import org.jlab.epics2web.epics.ChannelMonitorManager;
+import org.jlab.epics2web.epics.ChannelManager;
 
 /**
  * Controller for the Console page.
@@ -21,7 +21,7 @@ import org.jlab.epics2web.epics.ChannelMonitorManager;
 @WebServlet(name = "WebConsole", urlPatterns = {"/console"})
 public class WebConsole extends HttpServlet {
 
-    private final ChannelMonitorManager channelManager = Application.channelManager;
+    private final ChannelManager channelManager = Application.channelManager;
     private final WebSocketSessionManager sessionManager = Application.sessionManager;
     
     /**

@@ -30,7 +30,7 @@ import org.jlab.epics2web.epics.PvListener;
  * @author ryans
  */
 public class WebSocketSessionManager {
-
+    
     private static final Logger LOGGER = Logger.getLogger(WebSocketSessionManager.class.getName());
 
     /*ConcurrentHashMap provides thread safety on map of listeners*/
@@ -45,7 +45,7 @@ public class WebSocketSessionManager {
     public void sendPong(Session session) throws IOException {
         JsonObjectBuilder objBuilder = Json.createObjectBuilder().add("type", "pong");
         JsonObject obj = objBuilder.build();
-
+        
         if (session.isOpen()) {
             synchronized (session) {
                 session.getBasicRemote().sendText(obj.toString());
@@ -54,24 +54,24 @@ public class WebSocketSessionManager {
             LOGGER.log(Level.WARNING, "session is closed: {0}", session);
         }
     }
-
+    
     public void purgeStaleSessions() {
         for (Session s : listenerMap.keySet()) {
             purgeIfStale(s);
         }
     }
-
+    
     public void purgeIfStale(Session s) {
         Date lastUpdated = (Date) s.getUserProperties().get("lastUpdated");
         boolean expired = true;
-
+        
         Calendar cal = Calendar.getInstance();
         cal.add(Calendar.MINUTE, -1); // Stale if no interaction for 1 minute
 
         if (lastUpdated != null && lastUpdated.before(cal.getTime())) {
             expired = true;
         }
-
+        
         if (!s.isOpen() || expired) {
             LOGGER.log(Level.INFO, "Expiring session: {0}", s.getId());
             removeClient(s);
@@ -84,7 +84,7 @@ public class WebSocketSessionManager {
             }
         }
     }
-
+    
     public void pingAllSessions() {
         for (Session s : listenerMap.keySet()) {
             try {
@@ -92,7 +92,7 @@ public class WebSocketSessionManager {
             } catch (IllegalArgumentException | IOException e) {
                 LOGGER.log(Level.WARNING, "Unable to send WS ping", e);
                 removeClient(s);
-
+                
                 if (s.isOpen()) {
                     try {
                         s.close();
@@ -103,7 +103,7 @@ public class WebSocketSessionManager {
             }
         }
     }
-
+    
     public void sendWsPing(Session session) throws IllegalArgumentException, IOException {
         if (session.isOpen()) {
             synchronized (session) {
@@ -122,7 +122,7 @@ public class WebSocketSessionManager {
      */
     public Set<String> getPvSetFromJson(JsonArray pvs) {
         Set<String> pvSet = new HashSet<>();
-
+        
         for (JsonValue v : pvs) {
             if (v.getValueType() == JsonValue.ValueType.STRING) {
                 String pv = ((JsonString) v).getString();
@@ -131,7 +131,7 @@ public class WebSocketSessionManager {
                 LOGGER.log(Level.WARNING, "PV not a string: {0}", v);
             }
         }
-
+        
         return pvSet;
     }
 
@@ -154,7 +154,7 @@ public class WebSocketSessionManager {
      */
     public void addClient(Session session) {
         WebSocketSessionMonitor listener = getListener(session);
-
+        
         Application.channelManager.addListener(listener);
     }
 
@@ -165,10 +165,10 @@ public class WebSocketSessionManager {
      */
     public void removeClient(Session session) {
         WebSocketSessionMonitor listener = listenerMap.get(session);
-
+        
         if (listener != null) {
             listenerMap.remove(session);
-
+            
             Application.channelManager.removeListener(listener);
         }
     }
@@ -181,7 +181,7 @@ public class WebSocketSessionManager {
      */
     public void addPvs(Session session, Set<String> pvSet) {
         WebSocketSessionMonitor listener = getListener(session);
-
+        
         Application.channelManager.addPvs(listener, pvSet);
     }
 
@@ -193,7 +193,7 @@ public class WebSocketSessionManager {
      */
     public void clearPvs(Session session, Set<String> pvSet) {
         WebSocketSessionMonitor listener = getListener(session);
-
+        
         Application.channelManager.clearPvs(listener, pvSet);
     }
 
@@ -205,58 +205,60 @@ public class WebSocketSessionManager {
     public Map<Session, Set<String>> getClientMap() {
         Map<PvListener, Set<String>> pvMap = Application.channelManager.getClientMap();
         Map<Session, Set<String>> clientMap = new HashMap<>();
-
+        
         for (Session session : listenerMap.keySet()) {
             WebSocketSessionMonitor listener = listenerMap.get(session);
             Set<String> pvSet = pvMap.get(listener);
             clientMap.put(session, pvSet);
         }
-
+        
         return clientMap;
     }
-
+    
     private WebSocketSessionMonitor getListener(Session session) {
         WebSocketSessionMonitor listener = listenerMap.get(session);
-
+        
         if (listener == null) {
             listener = new WebSocketSessionMonitor(session, this);
             listenerMap.put(session, listener);
         }
-
+        
         return listener;
     }
 
     /**
-     * Notification of PV metadata sent after registering a PV with a ChannelMonitor.
+     * Notification of PV metadata sent after registering a PV with a
+     * ChannelMonitor.
      *
      * @param session The client
      * @param pv The PV that was registered
      * @param couldConnect true if the channel connected, false otherwise
      * @param type The EPICS datatype of the channel
      * @param count The EPICS item count
-     * @param enumLabels labels for the EPICS enumeration state if datatype is ENUM, null otherwise
+     * @param enumLabels labels for the EPICS enumeration state if datatype is
+     * ENUM, null otherwise
      */
     public void sendInfo(Session session, String pv, boolean couldConnect, DBRType type,
             Integer count,
             String[] enumLabels) {
         JsonObjectBuilder objBuilder
                 = Json.createObjectBuilder().add("type", "info").add(
-                "pv", pv).add("connected", couldConnect);
-
+                        "pv", pv).add("connected", couldConnect);
+        
         if (couldConnect) {
             objBuilder.add("datatype",
                     type.getName()).add("count", count);
-
+            
             if (enumLabels != null) {
                 JsonArrayBuilder arrBuilder = Json.createArrayBuilder();
                 for (String label : enumLabels) {
                     arrBuilder.add(label);
                 }
-
+                
                 objBuilder.add("enum-labels", arrBuilder);
             }
         }
-
+        
         JsonObject obj = objBuilder.build();
         if (session.isOpen()) {
             try {
@@ -284,30 +286,9 @@ public class WebSocketSessionManager {
     public void sendUpdate(Session session, String pv, DBR dbr) {
         JsonObjectBuilder builder = Json.createObjectBuilder().add("type", "update").add(
                 "pv", pv);
-
-        if (dbr.isDOUBLE()) {
-            double value = ((gov.aps.jca.dbr.DOUBLE) dbr).getDoubleValue()[0];
-            builder.add("value", value);
-        } else if (dbr.isFLOAT()) {
-            float value = ((gov.aps.jca.dbr.FLOAT) dbr).getFloatValue()[0];
-            builder.add("value", value);
-        } else if (dbr.isINT()) {
-            int value = ((gov.aps.jca.dbr.INT) dbr).getIntValue()[0];
-            builder.add("value", value);
-        } else if (dbr.isSHORT()) {
-            short value = ((gov.aps.jca.dbr.SHORT) dbr).getShortValue()[0];
-            builder.add("value", value);
-        } else if (dbr.isENUM()) {
-            short value = ((gov.aps.jca.dbr.ENUM) dbr).getEnumValue()[0];
-            builder.add("value", value);
-        } else if (dbr.isBYTE()) {
-            byte value = ((gov.aps.jca.dbr.BYTE) dbr).getByteValue()[0];
-            builder.add("value", value);
-        } else {
-            String value = ((gov.aps.jca.dbr.STRING) dbr).getStringValue()[0];
-            builder.add("value", value);
-        }
-
+        
+        Application.channelManager.addValueToJSON(builder, dbr);
+        
         JsonObject obj = builder.build();
         if (session.isOpen()) {
             //LOGGER.log(Level.FINEST, "sending message: {0}", obj.toString());  

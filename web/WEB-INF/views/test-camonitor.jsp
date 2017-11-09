@@ -4,7 +4,7 @@
 <html>
     <head>
         <meta charset="UTF-8">        
-        <title>epics2web - Test Connection</title>
+        <title>epics2web - Test camonitor</title>
         <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/resources/css/site.css?v=${initParam.releaseNumber}"/>
         <c:choose>
             <c:when test="${initParam.productionRelease eq 'true'}">
@@ -14,11 +14,11 @@
                 <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/resources/css/epics2web.css?v=${initParam.releaseNumber}"/> 
             </c:otherwise>
         </c:choose>
-        <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/resources/css/test.css?v=${initParam.releaseNumber}"/>
+        <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/resources/css/test-camonitor.css?v=${initParam.releaseNumber}"/>
     </head>
     <body>
         <h1>epics2web</h1>
-        <h2>Test Connection</h2>
+        <h2>Test camonitor</h2>
         <h3>
             <span class="socket-status-img">
                 <img class="ws-disconnected" title="Socket Disconnected" width="24px" height="24px" src="${pageContext.request.contextPath}/resources/img/disconnected.svg?v=${initParam.releaseNumber}"/>
@@ -59,6 +59,6 @@
                 <script type="text/javascript" src="${pageContext.request.contextPath}/resources/js/epics2web.js?v=${initParam.releaseNumber}"></script>
             </c:otherwise>
         </c:choose>
-        <script type="text/javascript" src="${pageContext.request.contextPath}/resources/js/test.js?v=${initParam.releaseNumber}"></script>
+        <script type="text/javascript" src="${pageContext.request.contextPath}/resources/js/test-camonitor.js?v=${initParam.releaseNumber}"></script>
     </body>
 </html>

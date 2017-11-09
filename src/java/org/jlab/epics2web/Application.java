@@ -1,7 +1,7 @@
 package org.jlab.epics2web;
 
 import org.jlab.epics2web.websocket.WebSocketSessionManager;
-import org.jlab.epics2web.epics.ChannelMonitorManager;
+import org.jlab.epics2web.epics.ChannelManager;
 import org.jlab.epics2web.epics.ContextFactory;
 import com.cosylab.epics.caj.CAJContext;
 import gov.aps.jca.CAException;
@@ -22,7 +22,7 @@ import javax.servlet.annotation.WebListener;
 @WebListener
 public class Application implements ServletContextListener {
 
-    public static ChannelMonitorManager channelManager = null;
+    public static ChannelManager channelManager = null;
     public static WebSocketSessionManager sessionManager = new WebSocketSessionManager();
     
     private static final int EXECUTOR_POOL_SIZE = 2;
@@ -42,7 +42,7 @@ public class Application implements ServletContextListener {
             LOGGER.log(Level.SEVERE, "Unable to obtain EPICS CA context", e);
         }
         executor = Executors.newScheduledThreadPool(EXECUTOR_POOL_SIZE);
-        channelManager = new ChannelMonitorManager(context, executor);
+        channelManager = new ChannelManager(context, executor);
     }
 
     @Override
