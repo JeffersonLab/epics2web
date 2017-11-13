@@ -301,7 +301,7 @@ public class WebSocketSessionManager {
             }
         } else {
             removeClient(session);
-            LOGGER.log(Level.WARNING,
+            LOGGER.log(Level.FINEST,
                     "Session for PV {0} is closed: {0}",
                     new Object[]{pv, session});
         }
