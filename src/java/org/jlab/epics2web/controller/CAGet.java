@@ -44,6 +44,8 @@ public class CAGet extends HttpServlet {
         
         // TODO: We should also offer caget over websocket too and make it async
         
+        // TODO: We should probably make this an aysnc servlet and use async CA calls otherwise this isn't going to scale at all.
+        
         String errorReason = null;
         List<DBR> dbrList = null;
         String jsonp = null;
