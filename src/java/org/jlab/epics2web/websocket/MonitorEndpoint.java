@@ -63,9 +63,9 @@ public class MonitorEndpoint {
                 String agent = null;
                 if (agentList != null && !agentList.isEmpty()) {
                     agent = agentList.get(0);
-                    if (agent == null) {
-                        agent = "Unknown";
-                    }
+                }
+                if (agent == null) {
+                    agent = "Unknown";
                 }
 
                 if (ip == null) {
