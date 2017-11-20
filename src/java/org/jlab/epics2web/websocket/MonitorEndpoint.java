@@ -63,12 +63,15 @@ public class MonitorEndpoint {
                 String agent = null;
                 if (agentList != null && !agentList.isEmpty()) {
                     agent = agentList.get(0);
+                    if (agent == null) {
+                        agent = "Unknown";
+                    }
                 }
 
                 if (ip == null) {
                     ip = context.getRemoteAddr();
                     if (ip == null) {
-                        ip = "unknown";
+                        ip = "Unknown";
                     }
                 }
 
@@ -82,6 +85,9 @@ public class MonitorEndpoint {
                         } catch (UnsupportedEncodingException e) {
                             LOGGER.log(Level.WARNING, "JVM doesn't support UTF-8 so can't decode clientName parameter", e);
                         }
+                    }
+                    if (name == null) {
+                        name = "";
                     }
                 }
 
