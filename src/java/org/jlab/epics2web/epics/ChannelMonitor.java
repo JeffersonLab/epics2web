@@ -21,9 +21,8 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -38,22 +37,18 @@ class ChannelMonitor implements Closeable {
 
     public static final int PEND_IO_MILLIS = 3000;
 
-    /*This LOCK provides thread safety to lastDBR, initialized, and couldConnect variables*/
-    private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
-    private final Lock readLock = rwLock.readLock();
-    private final Lock writeLock = rwLock.writeLock();
-
+    private final AtomicReference<DBR> lastDbr = new AtomicReference<>(null);
+    private final AtomicBoolean initialized = new AtomicBoolean(false);
+    private final AtomicBoolean couldConnect = new AtomicBoolean(false); // Set to true if connected succesfully before timeout
+    private final AtomicBoolean disconnectedPv = new AtomicBoolean(false); // Set to true if connection attempt already performed, and it failed (timeout reached)
+    
     /*We use a thread-safe set for listeners so that adding/removing/iterating can be done safely*/
     private final Set<PvListener> listeners = new CopyOnWriteArraySet<>();
     private CAJChannel c;
     private final CAJContext context;
     private final ScheduledExecutorService executor;
     private final String pv;
-    private DBR lastDbr = null;
-    private String[] enumLabels;
-    private boolean initialized = false;
-    private boolean disconnectedPv = false; // Set to true if connection attempt already performed, and it failed (timeout reached)
-    private boolean couldConnect = false; // Set to true if connected succesfully before timeout
+    private String[] enumLabels; 
 
     /**
      * Create a new ChannelMonitor for the given EPICS PV using the supplied CA Context.
@@ -84,21 +79,12 @@ class ChannelMonitor implements Closeable {
      * @param listener The PvListener
      */
     public void addListener(PvListener listener) {
-
-        DBR dbr;
-        boolean init;
-        boolean disconnected;
-
         listeners.add(listener);
 
-        readLock.lock();
-        try {
-            dbr = lastDbr;
-            init = initialized;
-            disconnected = disconnectedPv;
-        } finally {
-            readLock.unlock();
-        }
+        boolean init = initialized.get();        
+        boolean disconnected = disconnectedPv.get();
+        
+        DBR dbr = lastDbr.get();        
 
         if (init || disconnected) {
             notifyPvInfo(listener);
@@ -161,15 +147,15 @@ class ChannelMonitor implements Closeable {
     private void notifyPvInfo(PvListener listener) {
         DBRType type = null;
         Integer count = null;
-
-        // THESE VALUES DO NOT CHANGE AFTER MONITOR INIT, SO WE DON'T HAVE TO SYNCHRONIZE
-        if (couldConnect) {
+        boolean ableToConnect = couldConnect.get();
+        
+        if (ableToConnect) {
             type = c.getFieldType();
             count = c.getElementCount();
         }
 
         // ABSOLUTELY DO NOT CALL NOTIFY WHILE HOLDING A LOCK
-        listener.notifyPvInfo(pv, couldConnect, type, count, enumLabels);
+        listener.notifyPvInfo(pv, ableToConnect, type, count, enumLabels);
     }
 
     /**
@@ -206,15 +192,8 @@ class ChannelMonitor implements Closeable {
             future = executor.schedule(new Callable<Void>() {
                 @Override
                 public Void call() throws Exception {
-                    boolean connected;
-
-                    writeLock.lock();
-                    try {
-                        connected = couldConnect;
-                        disconnectedPv = !connected;
-                    } finally {
-                        writeLock.unlock();
-                    }
+                    boolean connected = couldConnect.get();
+                    disconnectedPv.set(!connected);
 
                     if (!connected) {
                         //LOGGER.log(Level.WARNING, "Unable to connect to channel (timeout)");
@@ -239,12 +218,7 @@ class ChannelMonitor implements Closeable {
                 //CAJChannel c2 = (CAJChannel) ce.getSource();
 
                 if (ce.isConnected()) {
-                    writeLock.lock();
-                    try {
-                        couldConnect = true;
-                    } finally {
-                        writeLock.unlock();
-                    }
+                    couldConnect.set(true);
                     future.cancel(false);
 
                     DBRType type = c.getFieldType();
@@ -334,17 +308,12 @@ class ChannelMonitor implements Closeable {
             //LOGGER.log(Level.FINEST, "Monitor Update");
             DBR dbr = me.getDBR();
             boolean notifyInfo = false;
-            writeLock.lock();
-            try {
-                lastDbr = dbr;
-
-                if (!initialized) {
-                    initialized = true;
-                    notifyInfo = true;
-                }
-            } finally {
-                writeLock.unlock();
+            boolean updated = initialized.compareAndSet(false, true);
+            if(updated){
+                notifyInfo = true;
             }
+            
+            lastDbr.set(dbr);
 
             if (notifyInfo) {
                 notifyPvInfoAll();
