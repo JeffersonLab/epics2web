@@ -21,13 +21,13 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Responsible for monitoring an EPICS channel and notifying registered listeners.
+ * Responsible for monitoring an EPICS channel and notifying registered
+ * listeners.
  *
  * @author ryans
  */
@@ -36,35 +36,39 @@ class ChannelMonitor implements Closeable {
     private static final Logger LOGGER = Logger.getLogger(ChannelMonitor.class.getName());
 
     public static final int PEND_IO_MILLIS = 3000;
+    public static final long TIMEOUT_MILLIS = 3000;
 
-    private final AtomicReference<DBR> lastDbr = new AtomicReference<>(null);
-    private final AtomicBoolean initialized = new AtomicBoolean(false);
-    private final AtomicBoolean couldConnect = new AtomicBoolean(false); // Set to true if connected succesfully before timeout
-    private final AtomicBoolean disconnectedPv = new AtomicBoolean(false); // Set to true if connection attempt already performed, and it failed (timeout reached)
-    
+    private volatile DBR lastDbr = null;
+    private volatile MonitorState state = MonitorState.CONNECTING; // We don't use CAJChannel.getConnectionState() because we want to still be "connecting" during enum label fetch
+    private AtomicReference<String[]> enumLabels = new AtomicReference<>(null); // volatile arrays are unsafe due to individual indicies so use AtomicReference instead 
+
     /*We use a thread-safe set for listeners so that adding/removing/iterating can be done safely*/
     private final Set<PvListener> listeners = new CopyOnWriteArraySet<>();
     private CAJChannel c;
     private final CAJContext context;
-    private final ScheduledExecutorService executor;
+    private final ScheduledExecutorService timeoutExecutor;
     private final String pv;
-    private String[] enumLabels; 
+
+    enum MonitorState {
+        CONNECTING, CONNECTED, DISCONNECTED;
+    }
 
     /**
-     * Create a new ChannelMonitor for the given EPICS PV using the supplied CA Context.
+     * Create a new ChannelMonitor for the given EPICS PV using the supplied CA
+     * Context.
      *
      * @param pv The PV name
      * @param context The EPICS CA Context
-     * @param executor The thread pool to use for connection timeout
+     * @param timeoutExecutor The thread pool to use for connection timeout
      */
-    public ChannelMonitor(String pv, CAJContext context, ScheduledExecutorService executor) {
+    public ChannelMonitor(String pv, CAJContext context, ScheduledExecutorService timeoutExecutor) {
         this.pv = pv;
         this.context = context;
-        this.executor = executor;
+        this.timeoutExecutor = timeoutExecutor;
 
         try {
             //LOGGER.log(Level.FINEST, "Creating channel: {0}", pv);
-            c = (CAJChannel) context.createChannel(pv, new ChannelConnectionListener());
+            c = (CAJChannel) context.createChannel(pv, new TimedChannelConnectionListener());
 
             context.flushIO();
 
@@ -81,15 +85,14 @@ class ChannelMonitor implements Closeable {
     public void addListener(PvListener listener) {
         listeners.add(listener);
 
-        boolean init = initialized.get();        
-        boolean disconnected = disconnectedPv.get();
-        
-        DBR dbr = lastDbr.get();        
+        boolean connecting = (state == MonitorState.CONNECTING);
 
-        if (init || disconnected) {
+        if (!connecting) {
             notifyPvInfo(listener);
-            
-            if(dbr != null) {
+
+            DBR dbr = lastDbr;
+
+            if (dbr != null) {
                 notifyPvUpdate(listener, dbr);
             }
         }
@@ -147,15 +150,15 @@ class ChannelMonitor implements Closeable {
     private void notifyPvInfo(PvListener listener) {
         DBRType type = null;
         Integer count = null;
-        boolean ableToConnect = couldConnect.get();
-        
-        if (ableToConnect) {
+        boolean connected = (state == MonitorState.CONNECTED);
+
+        if (connected) {
             type = c.getFieldType();
             count = c.getElementCount();
         }
 
         // ABSOLUTELY DO NOT CALL NOTIFY WHILE HOLDING A LOCK
-        listener.notifyPvInfo(pv, ableToConnect, type, count, enumLabels);
+        listener.notifyPvInfo(pv, connected, type, count, enumLabels.get());
     }
 
     /**
@@ -180,20 +183,18 @@ class ChannelMonitor implements Closeable {
     /**
      * Private inner helper class to respond to connection status changes.
      */
-    private class ChannelConnectionListener implements ConnectionListener {
+    private class TimedChannelConnectionListener implements ConnectionListener {
 
-        private static final long CONNECTION_TIMEOUT_MILLIS = 3000;
         private final ScheduledFuture future;
 
         /**
          * Creates a new ChannelConnectionListener.
          */
-        public ChannelConnectionListener() {
-            future = executor.schedule(new Callable<Void>() {
+        public TimedChannelConnectionListener() {
+            future = timeoutExecutor.schedule(new Callable<Void>() {
                 @Override
                 public Void call() throws Exception {
-                    boolean connected = couldConnect.get();
-                    disconnectedPv.set(!connected);
+                    boolean connected = (state == MonitorState.CONNECTED);
 
                     if (!connected) {
                         //LOGGER.log(Level.WARNING, "Unable to connect to channel (timeout)");
@@ -203,7 +204,7 @@ class ChannelMonitor implements Closeable {
 
                     return null;
                 }
-            }, CONNECTION_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+            }, TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
         }
 
         /**
@@ -213,14 +214,10 @@ class ChannelMonitor implements Closeable {
          */
         @Override
         public void connectionChanged(ConnectionEvent ce) {
-            //LOGGER.log(Level.FINEST, "Connected");
             try {
-                //CAJChannel c2 = (CAJChannel) ce.getSource();
+                future.cancel(false);
 
                 if (ce.isConnected()) {
-                    couldConnect.set(true);
-                    future.cancel(false);
-
                     DBRType type = c.getFieldType();
 
                     if (type == DBRType.ENUM) {
@@ -229,10 +226,16 @@ class ChannelMonitor implements Closeable {
                         handleRegularConnection();
                     }
                 } else {
-                    //LOGGER.log(Level.WARNING, "Unable to connect to channel (connection changed)");
+                    //CAJChannel c = (CAJChannel) ce.getSource();
+                    //LOGGER.log(Level.WARNING, "Unable to connect to channel: {0}", c.getName());                    
+
+                    state = MonitorState.DISCONNECTED;
+                    notifyPvInfoAll();
                 }
             } catch (CAException e) {
                 LOGGER.log(Level.SEVERE, "Unable to monitor channel", e);
+                state = MonitorState.DISCONNECTED;
+                notifyPvInfoAll();
             }
         }
 
@@ -245,19 +248,21 @@ class ChannelMonitor implements Closeable {
         private void handleRegularConnection() throws
                 IllegalStateException, CAException {
             registerMonitor();
-
             context.flushIO();
+
+            state = MonitorState.CONNECTED;
+            notifyPvInfoAll();
         }
 
         /**
-         * Setup an enum connection. A connection of an enum-valued PV requires additional metadata
-         * - the enum labels.
+         * Setup an enum connection. A connection of an enum-valued PV requires
+         * additional metadata - the enum labels.
          *
          * @throws IllegalStateException If unable to initialize
          * @throws CAException If unable to initialize
          */
         private void handleEnumConnection() throws IllegalStateException, CAException {
-            c.get(DBRType.LABELS_ENUM, 1, new ChannelEnumGetListener());
+            c.get(DBRType.LABELS_ENUM, 1, new TimedChannelEnumGetListener());
 
             context.flushIO();
         }
@@ -275,17 +280,37 @@ class ChannelMonitor implements Closeable {
         /**
          * A private inner inner class to respond to an enum label caget.
          */
-        private class ChannelEnumGetListener implements GetListener {
+        private class TimedChannelEnumGetListener implements GetListener {
+
+            private final ScheduledFuture future;
+
+            public TimedChannelEnumGetListener() {
+                future = timeoutExecutor.schedule(new Callable<Void>() {
+                    @Override
+                    public Void call() throws Exception {
+                        state = MonitorState.DISCONNECTED;
+
+                        notifyPvInfoAll();
+
+                        return null;
+                    }
+                }, TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+            }
 
             @Override
             public void getCompleted(GetEvent ge) {
+                future.cancel(false);
                 DBR_LABELS_Enum labelRecord = (DBR_LABELS_Enum) ge.getDBR();
-                enumLabels = labelRecord.getLabels();
+                enumLabels.set(labelRecord.getLabels());
+
+                state = MonitorState.CONNECTED;
 
                 try {
                     registerMonitor();
 
                     context.flushIO();
+
+                    notifyPvInfoAll();
                 } catch (Exception e) {
                     LOGGER.log(Level.WARNING, "Unable to register monitor after enum label fetch", e);
                 }
@@ -307,17 +332,8 @@ class ChannelMonitor implements Closeable {
         public void monitorChanged(MonitorEvent me) {
             //LOGGER.log(Level.FINEST, "Monitor Update");
             DBR dbr = me.getDBR();
-            boolean notifyInfo = false;
-            boolean updated = initialized.compareAndSet(false, true);
-            if(updated){
-                notifyInfo = true;
-            }
-            
-            lastDbr.set(dbr);
 
-            if (notifyInfo) {
-                notifyPvInfoAll();
-            }
+            lastDbr = dbr;
 
             notifyPvUpdateAll(dbr);
         }
