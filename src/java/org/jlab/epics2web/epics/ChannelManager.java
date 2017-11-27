@@ -90,6 +90,7 @@ public class ChannelManager {
             }
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, "Unable to create JSON from value", e);
+            builder.add("value", "");
             dbr.printInfo();
         }
     }
