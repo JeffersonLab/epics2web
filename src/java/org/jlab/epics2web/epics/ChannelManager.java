@@ -53,30 +53,47 @@ public class ChannelManager {
     }
 
     public void addValueToJSON(JsonObjectBuilder builder, DBR dbr) {
-        if (dbr.isDOUBLE()) {
-            double value = ((gov.aps.jca.dbr.DOUBLE) dbr).getDoubleValue()[0];
-            builder.add("value", value);
-        } else if (dbr.isFLOAT()) {
-            float value = ((gov.aps.jca.dbr.FLOAT) dbr).getFloatValue()[0];
-            builder.add("value", value);
-        } else if (dbr.isINT()) {
-            int value = ((gov.aps.jca.dbr.INT) dbr).getIntValue()[0];
-            builder.add("value", value);
-        } else if (dbr.isSHORT()) {
-            short value = ((gov.aps.jca.dbr.SHORT) dbr).getShortValue()[0];
-            builder.add("value", value);
-        } else if (dbr.isENUM()) {
-            short value = ((gov.aps.jca.dbr.ENUM) dbr).getEnumValue()[0];
-            builder.add("value", value);
-        } else if (dbr.isBYTE()) {
-            byte value = ((gov.aps.jca.dbr.BYTE) dbr).getByteValue()[0];
-            builder.add("value", value);
-        } else {
-            String value = ((gov.aps.jca.dbr.STRING) dbr).getStringValue()[0];
-            builder.add("value", value);
-        }        
+        try {
+            if (dbr.isDOUBLE()) {
+                double value = ((gov.aps.jca.dbr.DOUBLE) dbr).getDoubleValue()[0];
+                if (Double.isFinite(value)) {
+                    builder.add("value", value);
+                } else if (Double.isNaN(value)) {
+                    builder.add("value", "NaN");
+                } else {
+                    builder.add("value", "Infinity");
+                }
+            } else if (dbr.isFLOAT()) {
+                float value = ((gov.aps.jca.dbr.FLOAT) dbr).getFloatValue()[0];
+                if (Float.isFinite(value)) {
+                    builder.add("value", value);
+                } else if (Float.isNaN(value)) {
+                    builder.add("value", "NaN");
+                } else {
+                    builder.add("value", "Infinity");
+                }
+            } else if (dbr.isINT()) {
+                int value = ((gov.aps.jca.dbr.INT) dbr).getIntValue()[0];
+                builder.add("value", value);
+            } else if (dbr.isSHORT()) {
+                short value = ((gov.aps.jca.dbr.SHORT) dbr).getShortValue()[0];
+                builder.add("value", value);
+            } else if (dbr.isENUM()) {
+                short value = ((gov.aps.jca.dbr.ENUM) dbr).getEnumValue()[0];
+                builder.add("value", value);
+            } else if (dbr.isBYTE()) {
+                byte value = ((gov.aps.jca.dbr.BYTE) dbr).getByteValue()[0];
+                builder.add("value", value);
+            } else {
+                String value = ((gov.aps.jca.dbr.STRING) dbr).getStringValue()[0];
+                builder.add("value", value);
+            }
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Unable to create JSON from value", e);
+            dbr.printInfo();
+        }
     }
-    
+
     /**
      * Perform a synchronous (blocking) CA-GET request of the given PV.
      *
@@ -120,7 +137,6 @@ public class ChannelManager {
     public List<DBR> get(String[] pvs) throws CAException, TimeoutException {
 
         // TODO: If we were really clever we could check if a PV is currently being monitored and just return the most recent value.
-        
         List<DBR> dbrList = new ArrayList<>();
 
         if (pvs != null && pvs.length > 0) {
