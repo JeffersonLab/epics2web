@@ -40,7 +40,7 @@ public class ContextPool {
         config.setAttribute("class", JCALibrary.CHANNEL_ACCESS_JAVA);
 
         WAIT_TIMEOUT = config.getAttributeAsInteger("pool_timeout", 1000);
-        MAX_SIZE = config.getAttributeAsInteger("pool_max", 2);
+        MAX_SIZE = config.getAttributeAsInteger("pool_max", 1);
         
         for (int i = 0; i < MAX_SIZE; i++) {
             addContext();
