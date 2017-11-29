@@ -6,6 +6,8 @@ import java.net.URLDecoder;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.json.Json;
@@ -40,8 +42,6 @@ public class MonitorEndpoint {
         Application.sessionManager.recordInteractionDate(session);
 
         if (session != null) {
-            Application.sessionManager.addClient(session);
-
             WebSocketAuditContext context = WebSocketAuditContext.getCurrentInstance();
 
             if (context != null) {
@@ -98,6 +98,13 @@ public class MonitorEndpoint {
                 // Try to prevent classloader leak
                 WebSocketAuditContext.setCurrentInstance(null);
             }
+
+            if (Application.USE_QUEUE) {
+                session.getUserProperties().put("isWriting", new AtomicBoolean(false));
+                session.getUserProperties().put("writequeue", new ConcurrentLinkedQueue());
+            }
+
+            Application.sessionManager.addClient(session);
         }
     }
 

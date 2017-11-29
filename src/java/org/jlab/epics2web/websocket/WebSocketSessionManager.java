@@ -8,9 +8,11 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.json.Json;
@@ -30,11 +32,11 @@ import org.jlab.epics2web.epics.PvListener;
  * @author ryans
  */
 public class WebSocketSessionManager {
-    
+
     private static final Logger LOGGER = Logger.getLogger(WebSocketSessionManager.class.getName());
 
     /*ConcurrentHashMap provides thread safety on map of listeners*/
-    private final Map<Session, WebSocketSessionMonitor> listenerMap = new ConcurrentHashMap<>();
+    final Map<Session, WebSocketSessionMonitor> listenerMap = new ConcurrentHashMap<>();
 
     /**
      * Send a pong reply. This is generally done in response to a client ping.
@@ -45,33 +47,27 @@ public class WebSocketSessionManager {
     public void sendPong(Session session) throws IOException {
         JsonObjectBuilder objBuilder = Json.createObjectBuilder().add("type", "pong");
         JsonObject obj = objBuilder.build();
-        
-        if (session.isOpen()) {
-            synchronized (session) {
-                session.getBasicRemote().sendText(obj.toString());
-            }
-        } else {
-            LOGGER.log(Level.WARNING, "session is closed: {0}", session);
-        }
+        String msg = obj.toString();
+        this.send(session, "pong", msg);
     }
-    
+
     public void purgeStaleSessions() {
         for (Session s : listenerMap.keySet()) {
             purgeIfStale(s);
         }
     }
-    
+
     public void purgeIfStale(Session s) {
         Date lastUpdated = (Date) s.getUserProperties().get("lastUpdated");
         boolean expired = true;
-        
+
         Calendar cal = Calendar.getInstance();
         cal.add(Calendar.MINUTE, -1); // Stale if no interaction for 1 minute
 
         if (lastUpdated != null && lastUpdated.before(cal.getTime())) {
             expired = true;
         }
-        
+
         if (!s.isOpen() || expired) {
             LOGGER.log(Level.INFO, "Expiring session: {0}", s.getId());
             removeClient(s);
@@ -84,7 +80,7 @@ public class WebSocketSessionManager {
             }
         }
     }
-    
+
     public void pingAllSessions() {
         for (Session s : listenerMap.keySet()) {
             try {
@@ -92,7 +88,7 @@ public class WebSocketSessionManager {
             } catch (IllegalArgumentException | IOException e) {
                 LOGGER.log(Level.WARNING, "Unable to send WS ping", e);
                 removeClient(s);
-                
+
                 if (s.isOpen()) {
                     try {
                         s.close();
@@ -103,7 +99,7 @@ public class WebSocketSessionManager {
             }
         }
     }
-    
+
     public void sendWsPing(Session session) throws IllegalArgumentException, IOException {
         if (session.isOpen()) {
             synchronized (session) {
@@ -122,7 +118,7 @@ public class WebSocketSessionManager {
      */
     public Set<String> getPvSetFromJson(JsonArray pvs) {
         Set<String> pvSet = new HashSet<>();
-        
+
         for (JsonValue v : pvs) {
             if (v.getValueType() == JsonValue.ValueType.STRING) {
                 String pv = ((JsonString) v).getString();
@@ -131,7 +127,7 @@ public class WebSocketSessionManager {
                 LOGGER.log(Level.WARNING, "PV not a string: {0}", v);
             }
         }
-        
+
         return pvSet;
     }
 
@@ -154,7 +150,7 @@ public class WebSocketSessionManager {
      */
     public void addClient(Session session) {
         WebSocketSessionMonitor listener = getListener(session);
-        
+
         Application.channelManager.addListener(listener);
     }
 
@@ -165,10 +161,10 @@ public class WebSocketSessionManager {
      */
     public void removeClient(Session session) {
         WebSocketSessionMonitor listener = listenerMap.get(session);
-        
+
         if (listener != null) {
             listenerMap.remove(session);
-            
+
             Application.channelManager.removeListener(listener);
         }
     }
@@ -181,7 +177,7 @@ public class WebSocketSessionManager {
      */
     public void addPvs(Session session, Set<String> pvSet) {
         WebSocketSessionMonitor listener = getListener(session);
-        
+
         Application.channelManager.addPvs(listener, pvSet);
     }
 
@@ -193,7 +189,7 @@ public class WebSocketSessionManager {
      */
     public void clearPvs(Session session, Set<String> pvSet) {
         WebSocketSessionMonitor listener = getListener(session);
-        
+
         Application.channelManager.clearPvs(listener, pvSet);
     }
 
@@ -205,24 +201,28 @@ public class WebSocketSessionManager {
     public Map<Session, Set<String>> getClientMap() {
         Map<PvListener, Set<String>> pvMap = Application.channelManager.getClientMap();
         Map<Session, Set<String>> clientMap = new HashMap<>();
-        
+
         for (Session session : listenerMap.keySet()) {
             WebSocketSessionMonitor listener = listenerMap.get(session);
             Set<String> pvSet = pvMap.get(listener);
             clientMap.put(session, pvSet);
         }
-        
+
         return clientMap;
     }
-    
+
+    public Set<Session> toSet() {
+        return new HashSet<>(listenerMap.keySet());
+    }
+
     private WebSocketSessionMonitor getListener(Session session) {
         WebSocketSessionMonitor listener = listenerMap.get(session);
-        
+
         if (listener == null) {
             listener = new WebSocketSessionMonitor(session, this);
             listenerMap.put(session, listener);
         }
-        
+
         return listener;
     }
 
@@ -244,36 +244,24 @@ public class WebSocketSessionManager {
         JsonObjectBuilder objBuilder
                 = Json.createObjectBuilder().add("type", "info").add(
                         "pv", pv).add("connected", couldConnect);
-        
+
         if (couldConnect) {
             objBuilder.add("datatype",
                     type.getName()).add("count", count);
-            
+
             if (enumLabels != null) {
                 JsonArrayBuilder arrBuilder = Json.createArrayBuilder();
                 for (String label : enumLabels) {
                     arrBuilder.add(label);
                 }
-                
+
                 objBuilder.add("enum-labels", arrBuilder);
             }
         }
-        
+
         JsonObject obj = objBuilder.build();
-        if (session.isOpen()) {
-            try {
-                synchronized (session) {
-                    session.getBasicRemote().sendText(obj.toString());
-                }
-            } catch (IOException e) {
-                LOGGER.log(Level.WARNING, "Unable to send message", e);
-            }
-        } else {
-            removeClient(session);
-            LOGGER.log(Level.WARNING,
-                    "Session for PV {0} is closed: {0}",
-                    new Object[]{pv, session});
-        }
+        String msg = obj.toString();
+        send(session, pv, msg);
     }
 
     /**
@@ -286,23 +274,37 @@ public class WebSocketSessionManager {
     public void sendUpdate(Session session, String pv, DBR dbr) {
         JsonObjectBuilder builder = Json.createObjectBuilder().add("type", "update").add(
                 "pv", pv);
-        
         Application.channelManager.addValueToJSON(builder, dbr);
-        
         JsonObject obj = builder.build();
+        String msg = obj.toString();
+        send(session, pv, msg);
+    }
+
+    public void send(Session session, String pv, String msg) {
         if (session.isOpen()) {
-            //LOGGER.log(Level.FINEST, "sending message: {0}", obj.toString());  
-            try {
-                synchronized (session) {
-                    session.getBasicRemote().sendText(obj.toString());
+            if (Application.USE_QUEUE) {
+                //LinkedHashSet updatequeue = (LinkedHashSet) session.getUserProperties().get("updatequeue");
+                ConcurrentLinkedQueue<String> writequeue = (ConcurrentLinkedQueue<String>) session.getUserProperties().get("writequeue");
+
+                //System.out.println("Queue Size: " + writequeue.size());
+                if (writequeue.size() > 1000) {
+                    LOGGER.log(Level.FINEST, "Dropping message: {0}", msg);
+                } else {
+                    writequeue.offer(msg);
                 }
-            } catch (IOException e) {
-                LOGGER.log(Level.WARNING, "Unable to send message", e);
+            } else {
+                try {
+                    synchronized (session) {
+                        session.getBasicRemote().sendText(msg);
+                    }
+                } catch (IOException e) {
+                    LOGGER.log(Level.WARNING, "Unable to send message", e);
+                }
             }
         } else {
             removeClient(session);
             LOGGER.log(Level.FINEST,
-                    "Session for PV {0} is closed: {0}",
+                    "Session for PV {0} is closed: {1}",
                     new Object[]{pv, session});
         }
     }

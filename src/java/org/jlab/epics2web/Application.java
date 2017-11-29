@@ -5,29 +5,43 @@ import org.jlab.epics2web.epics.ChannelManager;
 import org.jlab.epics2web.epics.ContextFactory;
 import com.cosylab.epics.caj.CAJContext;
 import gov.aps.jca.CAException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.LockSupport;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletContextListener;
 import javax.servlet.annotation.WebListener;
+import javax.websocket.RemoteEndpoint;
+import javax.websocket.SendHandler;
+import javax.websocket.SendResult;
+import javax.websocket.Session;
 
 /**
- * Main class that ties into application lifecycle; creates and destroys key resources.
- * 
+ * Main class that ties into application lifecycle; creates and destroys key
+ * resources.
+ *
  * @author ryans
  */
 @WebListener
 public class Application implements ServletContextListener {
 
+    public static final boolean USE_QUEUE = false;
+
     public static ChannelManager channelManager = null;
     public static WebSocketSessionManager sessionManager = new WebSocketSessionManager();
-    
-    private static final int EXECUTOR_POOL_SIZE = 2;
+
+    private static final int TIMEOUT_EXECUTOR_POOL_SIZE = 1;
     private static final Logger LOGGER = Logger.getLogger(Application.class.getName());
-    private static ScheduledExecutorService executor = null;
+    private static ScheduledExecutorService timeoutExecutor = null;
+    private static ExecutorService writerExecutor = null;
     private static ContextFactory factory = null;
     private static CAJContext context = null;
 
@@ -41,11 +55,64 @@ public class Application implements ServletContextListener {
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Unable to obtain EPICS CA context", e);
         }
-        executor = Executors.newScheduledThreadPool(EXECUTOR_POOL_SIZE);
-        channelManager = new ChannelManager(context, executor);
+        timeoutExecutor = Executors.newScheduledThreadPool(TIMEOUT_EXECUTOR_POOL_SIZE, new CustomPrefixThreadFactory("CA-Timeout-"));
+        writerExecutor = Executors.newSingleThreadExecutor(new CustomPrefixThreadFactory("Web-Socket-Writer-"));
+        channelManager = new ChannelManager(context, timeoutExecutor);
+
+        if (USE_QUEUE) {
+            writerExecutor.execute(new Runnable() {
+                @Override
+                public void run() {
+                    while (true) {
+                        try {
+                            for (Session session : sessionManager.toSet()) {
+                                if (session.isOpen()) {
+                                    AtomicBoolean isWriting = (AtomicBoolean) session.getUserProperties().get("isWriting");
+                                    boolean updated = isWriting.compareAndSet(false, true);
+                                    if (updated) {
+                                        ConcurrentLinkedQueue<String> writequeue = (ConcurrentLinkedQueue<String>) session.getUserProperties().get("writequeue");
+                                        String msg = writequeue.poll();
+                                        if (msg == null) {
+                                            isWriting.compareAndSet(true, false);
+                                        } else {
+                                            RemoteEndpoint.Async a = session.getAsyncRemote();
+                                            //LOGGER.log(Level.INFO, "Sending msg: {0}", msg);
+                                            a.sendText(msg, new SendHandler() {
+                                                @Override
+                                                public void onResult(SendResult result) {
+                                                    boolean u = isWriting.compareAndSet(true, false);
+                                                    if (!u) {
+                                                        LOGGER.log(Level.WARNING, "No need to clear isWriting");
+                                                    }
+                                                    if (!result.isOK()) {
+                                                        LOGGER.log(Level.FINEST, "Unable to send message", result.getException());
+                                                        sessionManager.removeClient(session);
+                                                    }
+                                                }
+                                            });
+                                        }
+                                    }
+                                } else {
+                                    sessionManager.removeClient(session);
+                                }
+                            }
+                        } catch (Exception e) {
+                            LOGGER.log(Level.WARNING, "Unable to write message for session", e);
+                        }
+                        if (Thread.interrupted()) {
+                            LOGGER.log(Level.WARNING, "Writer Thread interrupted; shutting it down");
+                            break;
+                        }
+
+                        LockSupport.parkNanos(this, 10);
+                    }
+                }
+            });
+        }
     }
 
     @Override
+
     public void contextDestroyed(ServletContextEvent sce) {
         LOGGER.log(Level.INFO, ">>>>>>>>>>>>>>>>>>>>>>>>>> CONTEXT DESTROYED");
 
@@ -56,23 +123,38 @@ public class Application implements ServletContextListener {
                 LOGGER.log(Level.WARNING, "Unable to return EPICS CA Context", e);
             }
         }
-        
-        if(factory != null) {
+
+        if (factory != null) {
             factory.shutdown();
         }
 
-        if (executor != null) {
-            executor.shutdown();
+        if (timeoutExecutor != null) {
+            timeoutExecutor.shutdown();
+        }
 
+        if (writerExecutor != null) {
+            writerExecutor.shutdownNow();
+        }
+
+        if (timeoutExecutor != null) {
             try {
-                if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
-                    LOGGER.log(Level.WARNING, "Thread ExecutorService is not stopping...");
-                    executor.shutdownNow();
+                if (!timeoutExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
+                    LOGGER.log(Level.WARNING, "Timeout Thread ExecutorService is not stopping...");
+                    timeoutExecutor.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                LOGGER.log(Level.SEVERE, "Interrupted while waiting for threads to stop", e);
+            }
+        }
+
+        if (writerExecutor != null) {
+            try {
+                if (!writerExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
+                    LOGGER.log(Level.WARNING, "Writer Thread ExecutorService is not stopping...");
                 }
             } catch (InterruptedException e) {
                 LOGGER.log(Level.SEVERE, "Interrupted while waiting for threads to stop", e);
             }
         }
     }
-
 }
