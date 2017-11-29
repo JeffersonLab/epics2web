@@ -5,6 +5,11 @@ import org.jlab.epics2web.epics.ChannelManager;
 import org.jlab.epics2web.epics.ContextFactory;
 import com.cosylab.epics.caj.CAJContext;
 import gov.aps.jca.CAException;
+import gov.aps.jca.event.ContextExceptionEvent;
+import gov.aps.jca.event.ContextExceptionListener;
+import gov.aps.jca.event.ContextMessageEvent;
+import gov.aps.jca.event.ContextMessageListener;
+import gov.aps.jca.event.ContextVirtualCircuitExceptionEvent;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -52,6 +57,26 @@ public class Application implements ServletContextListener {
         factory = new ContextFactory();
         try {
             context = factory.getContext();
+
+            context.addContextExceptionListener(new ContextExceptionListener() {
+                @Override
+                public void contextException(ContextExceptionEvent ev) {
+                    LOGGER.log(Level.SEVERE, "EPICS CA Context Exception: {0}", ev.getMessage());
+                    LOGGER.log(Level.SEVERE, "Channel: {0}", ev.getChannel() == null ? "N/A" : ev.getChannel().getName());
+                }
+
+                @Override
+                public void contextVirtualCircuitException(ContextVirtualCircuitExceptionEvent ev) {
+                    LOGGER.log(Level.SEVERE, "EPICS CA Context Virtual Circuit Exception: Status: {0}, Address: {1}", new Object[]{ev.getStatus(), ev.getVirtualCircuit()});
+                }
+            });
+            
+            context.addContextMessageListener(new ContextMessageListener() {
+                @Override
+                public void contextMessage(ContextMessageEvent ev) {
+                    LOGGER.log(Level.WARNING, "EPICS CA Context Messge Event: {0}", ev.getMessage());
+                }
+            });
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Unable to obtain EPICS CA context", e);
         }
