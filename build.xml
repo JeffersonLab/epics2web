@@ -61,6 +61,7 @@
         <mkdir dir="${classes.dir}"/>
         <javac srcdir="${src.dir}" destdir="${classes.dir}" includeantruntime="false" source="1.8" debug="true" encoding="UTF-8">
             <classpath refid="project.class.path"/>
+            <compilerarg value="-Xlint:unchecked"/>
         </javac>
         <copy todir="${classes.dir}">
             <fileset dir="${src.dir}" excludes="**/*.java"/>

@@ -280,6 +280,7 @@ public class WebSocketSessionManager {
         send(session, pv, msg);
     }
 
+    @SuppressWarnings("unchecked")
     public void send(Session session, String pv, String msg) {
         if (session.isOpen()) {
             if (Application.USE_QUEUE) {
@@ -297,7 +298,7 @@ public class WebSocketSessionManager {
                     synchronized (session) {
                         session.getBasicRemote().sendText(msg);
                     }
-                } catch(IllegalStateException e) { // If session closes between time session.isOpen() and sentText(msg) then you'll get this exception.  Not an issue.
+                } catch (IllegalStateException e) { // If session closes between time session.isOpen() and sentText(msg) then you'll get this exception.  Not an issue.
                     LOGGER.log(Level.INFO, "Unable to send message", e.getMessage());
                 } catch (IOException e) {
                     LOGGER.log(Level.WARNING, "Unable to send message", e);

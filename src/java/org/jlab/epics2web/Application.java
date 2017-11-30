@@ -87,6 +87,7 @@ public class Application implements ServletContextListener {
         if (USE_QUEUE) {
             writerExecutor.execute(new Runnable() {
                 @Override
+                @SuppressWarnings("unchecked") 
                 public void run() {
                     while (true) {
                         try {
