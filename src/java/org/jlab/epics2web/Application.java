@@ -67,7 +67,7 @@ public class Application implements ServletContextListener {
 
                 @Override
                 public void contextVirtualCircuitException(ContextVirtualCircuitExceptionEvent ev) {
-                    LOGGER.log(Level.SEVERE, "EPICS CA Context Virtual Circuit Exception: Status: {0}, Address: {1}", new Object[]{ev.getStatus(), ev.getVirtualCircuit()});
+                    LOGGER.log(Level.SEVERE, "EPICS CA Context Virtual Circuit Exception: Status: {0}, Address: {1}, Fatal: {2}", new Object[]{ev.getStatus(), ev.getVirtualCircuit(), ev.getStatus().isFatal()});
                 }
             });
             
