@@ -56,27 +56,7 @@ public class Application implements ServletContextListener {
 
         factory = new ContextFactory();
         try {
-            context = factory.getContext();
-
-            context.addContextExceptionListener(new ContextExceptionListener() {
-                @Override
-                public void contextException(ContextExceptionEvent ev) {
-                    LOGGER.log(Level.SEVERE, "EPICS CA Context Exception: {0}", ev.getMessage());
-                    LOGGER.log(Level.SEVERE, "Channel: {0}", ev.getChannel() == null ? "N/A" : ev.getChannel().getName());
-                }
-
-                @Override
-                public void contextVirtualCircuitException(ContextVirtualCircuitExceptionEvent ev) {
-                    LOGGER.log(Level.SEVERE, "EPICS CA Context Virtual Circuit Exception: Status: {0}, Address: {1}, Fatal: {2}", new Object[]{ev.getStatus(), ev.getVirtualCircuit(), ev.getStatus().isFatal()});
-                }
-            });
-            
-            context.addContextMessageListener(new ContextMessageListener() {
-                @Override
-                public void contextMessage(ContextMessageEvent ev) {
-                    LOGGER.log(Level.WARNING, "EPICS CA Context Messge Event: {0}", ev.getMessage());
-                }
-            });
+            context = factory.newContext();
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Unable to obtain EPICS CA context", e);
         }
@@ -84,10 +64,16 @@ public class Application implements ServletContextListener {
         writerExecutor = Executors.newSingleThreadExecutor(new CustomPrefixThreadFactory("Web-Socket-Writer-"));
         channelManager = new ChannelManager(context, timeoutExecutor);
 
+        try {
+            registerContextListeners(context);
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Unable to register context callbacks", e);
+        }
+
         if (USE_QUEUE) {
             writerExecutor.execute(new Runnable() {
                 @Override
-                @SuppressWarnings("unchecked") 
+                @SuppressWarnings("unchecked")
                 public void run() {
                     while (true) {
                         try {
@@ -142,16 +128,12 @@ public class Application implements ServletContextListener {
     public void contextDestroyed(ServletContextEvent sce) {
         LOGGER.log(Level.INFO, ">>>>>>>>>>>>>>>>>>>>>>>>>> CONTEXT DESTROYED");
 
-        if (context != null && factory != null) {
+        if (context != null) {
             try {
-                factory.returnContext(context);
+                context.destroy();
             } catch (CAException e) {
-                LOGGER.log(Level.WARNING, "Unable to return EPICS CA Context", e);
+                LOGGER.log(Level.WARNING, "Unable to destroy Context", e);
             }
-        }
-
-        if (factory != null) {
-            factory.shutdown();
         }
 
         if (timeoutExecutor != null) {
@@ -182,5 +164,43 @@ public class Application implements ServletContextListener {
                 LOGGER.log(Level.SEVERE, "Interrupted while waiting for threads to stop", e);
             }
         }
+    }
+
+    private void registerContextListeners(CAJContext c) throws CAException {
+            c.addContextExceptionListener(new ContextExceptionListener() {
+                @Override
+                public void contextException(ContextExceptionEvent ev) {
+                    LOGGER.log(Level.SEVERE, "EPICS CA Context Exception: {0}", ev.getMessage());
+                    LOGGER.log(Level.SEVERE, "Channel: {0}", ev.getChannel() == null ? "N/A" : ev.getChannel().getName());
+                }
+
+                @Override
+                public void contextVirtualCircuitException(ContextVirtualCircuitExceptionEvent ev) {
+                    LOGGER.log(Level.SEVERE, "EPICS CA Context Virtual Circuit Exception: Status: {0}, Address: {1}, Fatal: {2}", new Object[]{ev.getStatus(), ev.getVirtualCircuit(), ev.getStatus().isFatal()});
+
+                    LOGGER.log(Level.SEVERE, "ATTEMPTING A CONTEXT RESET");
+
+                    try {
+                        context.destroy();
+                    } catch (CAException e) {
+                        LOGGER.log(Level.SEVERE, "Unable to destroy context with unresponsive virtual circuit", e);
+                    }
+
+                    try {
+                        context = factory.newContext();
+                        channelManager.reset(context);
+                        registerContextListeners(context);
+                    } catch (CAException e) {
+                        LOGGER.log(Level.SEVERE, "Unable to reset context", e);
+                    }
+                }
+            });
+
+            c.addContextMessageListener(new ContextMessageListener() {
+                @Override
+                public void contextMessage(ContextMessageEvent ev) {
+                    LOGGER.log(Level.WARNING, "EPICS CA Context Messge Event: {0}", ev.getMessage());
+                }
+            });
     }
 }

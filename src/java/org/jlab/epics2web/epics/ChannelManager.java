@@ -38,7 +38,7 @@ public class ChannelManager {
     private final Map<String, ChannelMonitor> monitorMap = new HashMap<>();
     private final Map<PvListener, Set<String>> clientMap = new HashMap<>();
 
-    private final CAJContext context;
+    private CAJContext context;
     private final ScheduledExecutorService executor;
 
     /**
@@ -50,6 +50,29 @@ public class ChannelManager {
     public ChannelManager(CAJContext context, ScheduledExecutorService executor) {
         this.context = context;
         this.executor = executor;
+    }
+
+    public void reset(CAJContext context) {
+        writeLock.lock();
+        try {
+            this.context = context;
+            /*for(ChannelMonitor monitor: monitorMap.values()) {
+                try {
+                monitor.close();
+                } catch(Exception e) {
+                    LOGGER.log(Level.INFO, "Unable to close monitor", e);
+                }
+            }*/            
+            monitorMap.clear();
+            Map<PvListener, Set<String>> old = new HashMap<>(clientMap);
+            clientMap.clear();
+            for(PvListener listener: old.keySet()) {
+                Set<String> pvs = old.get(listener);
+                addPvs(listener, pvs);
+            }
+        } finally {
+            writeLock.unlock();
+        }
     }
 
     public void addValueToJSON(JsonObjectBuilder builder, DBR dbr) {
