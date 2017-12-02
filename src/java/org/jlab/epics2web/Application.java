@@ -181,15 +181,11 @@ public class Application implements ServletContextListener {
                     LOGGER.log(Level.SEVERE, "ATTEMPTING A CONTEXT RESET");
 
                     try {
-                        context.destroy();
-                    } catch (CAException e) {
-                        LOGGER.log(Level.SEVERE, "Unable to destroy context with unresponsive virtual circuit", e);
-                    }
-
-                    try {
                         context = factory.newContext();
-                        channelManager.reset(context);
                         registerContextListeners(context);
+                        
+                        channelManager.reset(context);
+
                     } catch (CAException e) {
                         LOGGER.log(Level.SEVERE, "Unable to reset context", e);
                     }

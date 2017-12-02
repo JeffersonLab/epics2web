@@ -54,19 +54,26 @@ public class ChannelManager {
 
     public void reset(CAJContext context) {
         writeLock.lock();
+
         try {
-            this.context = context;
+            this.context.destroy(); // Destroy old context
+        } catch (CAException e) {
+            LOGGER.log(Level.SEVERE, "Unable to destroy context with unresponsive virtual circuit", e);
+        }
+
+        try {
+            this.context = context; // Assign new context
             /*for(ChannelMonitor monitor: monitorMap.values()) {
                 try {
                 monitor.close();
                 } catch(Exception e) {
                     LOGGER.log(Level.INFO, "Unable to close monitor", e);
                 }
-            }*/            
+            }*/
             monitorMap.clear();
             Map<PvListener, Set<String>> old = new HashMap<>(clientMap);
             clientMap.clear();
-            for(PvListener listener: old.keySet()) {
+            for (PvListener listener : old.keySet()) {
                 Set<String> pvs = old.get(listener);
                 addPvs(listener, pvs);
             }
