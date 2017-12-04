@@ -61,20 +61,15 @@ class ChannelMonitor implements Closeable {
      * @param context The EPICS CA Context
      * @param timeoutExecutor The thread pool to use for connection timeout
      */
-    public ChannelMonitor(String pv, CAJContext context, ScheduledExecutorService timeoutExecutor) {
+    public ChannelMonitor(String pv, CAJContext context, ScheduledExecutorService timeoutExecutor) throws CAException {
         this.pv = pv;
         this.context = context;
         this.timeoutExecutor = timeoutExecutor;
 
-        try {
-            //LOGGER.log(Level.FINEST, "Creating channel: {0}", pv);
-            c = (CAJChannel) context.createChannel(pv, new TimedChannelConnectionListener());
+        //LOGGER.log(Level.FINEST, "Creating channel: {0}", pv);
+        c = (CAJChannel) context.createChannel(pv, new TimedChannelConnectionListener());
 
-            context.flushIO();
-
-        } catch (CAException e) {
-            LOGGER.log(Level.SEVERE, "Unable to obtain channel access context", e);
-        }
+        context.flushIO();
     }
 
     /**

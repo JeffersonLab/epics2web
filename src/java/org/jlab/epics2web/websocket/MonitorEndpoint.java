@@ -118,6 +118,7 @@ public class MonitorEndpoint {
 
     @OnError
     public void onError(Session session, Throwable t) {
+        //t.printStackTrace();
         LOGGER.log(Level.WARNING, "WebSocket Error: {0}", t.getMessage());
         if (session != null) {
             Application.sessionManager.removeClient(session);

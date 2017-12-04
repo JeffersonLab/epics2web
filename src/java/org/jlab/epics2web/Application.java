@@ -4,12 +4,17 @@ import org.jlab.epics2web.websocket.WebSocketSessionManager;
 import org.jlab.epics2web.epics.ChannelManager;
 import org.jlab.epics2web.epics.ContextFactory;
 import com.cosylab.epics.caj.CAJContext;
+import com.cosylab.epics.caj.impl.CATransport;
+import com.cosylab.epics.caj.impl.Transport;
 import gov.aps.jca.CAException;
+import gov.aps.jca.CAStatus;
 import gov.aps.jca.event.ContextExceptionEvent;
 import gov.aps.jca.event.ContextExceptionListener;
 import gov.aps.jca.event.ContextMessageEvent;
 import gov.aps.jca.event.ContextMessageListener;
 import gov.aps.jca.event.ContextVirtualCircuitExceptionEvent;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -48,7 +53,7 @@ public class Application implements ServletContextListener {
     private static ScheduledExecutorService timeoutExecutor = null;
     private static ExecutorService writerExecutor = null;
     private static ContextFactory factory = null;
-    private static CAJContext context = null;
+    private static volatile CAJContext context = null;
 
     @Override
     public void contextInitialized(ServletContextEvent sce) {
@@ -57,6 +62,7 @@ public class Application implements ServletContextListener {
         factory = new ContextFactory();
         try {
             context = factory.newContext();
+            //context.getLogger().setLevel(Level.FINE);
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Unable to obtain EPICS CA context", e);
         }
@@ -178,13 +184,37 @@ public class Application implements ServletContextListener {
                 public void contextVirtualCircuitException(ContextVirtualCircuitExceptionEvent ev) {
                     LOGGER.log(Level.SEVERE, "EPICS CA Context Virtual Circuit Exception: Status: {0}, Address: {1}, Fatal: {2}", new Object[]{ev.getStatus(), ev.getVirtualCircuit(), ev.getStatus().isFatal()});
 
+                    LOGGER.log(Level.SEVERE, "Source: {0}", ev.getSource());
+                    
+                    //int statusCode = ev.getStatus().getStatusCode();
+                    //if(statusCode == CAStatus.UNRESPTMO.getStatusCode()) {
+                        // Only do a reset if Unresponsive?
+                    //}
+                    
                     LOGGER.log(Level.SEVERE, "ATTEMPTING A CONTEXT RESET");
 
+                    /*InetAddress ip = ev.getVirtualCircuit(); 
+                    int port = 5064;
+                    InetSocketAddress ipAndPort = new InetSocketAddress(ip, port);
+                    Transport[] transportArray = context.getTransportRegistry().get(ipAndPort);
+                    
+                    if(transportArray != null && transportArray.length == 1 && transportArray[0] instanceof CATransport) {
+                        CATransport trans = (CATransport)transportArray[0];
+                        trans.changedTransport();
+                        trans.close(true);
+                    }*/
+                    
                     try {
                         context = factory.newContext();
                         registerContextListeners(context);
                         
-                        channelManager.reset(context);
+                        // We run the reset in a separate thread as the contextVirtualCircuitException is generally called from Timer thread, which is hold locks in a bad way
+                        timeoutExecutor.execute(new Runnable(){
+                            @Override
+                            public void run() {
+                                channelManager.reset(context);
+                            }
+                        });
 
                     } catch (CAException e) {
                         LOGGER.log(Level.SEVERE, "Unable to reset context", e);

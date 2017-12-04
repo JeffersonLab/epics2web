@@ -1,4 +1,3 @@
-
 package org.jlab.epics2web.epics;
 
 import com.cosylab.epics.caj.CAJChannel;
@@ -234,14 +233,20 @@ public class ChannelManager {
 
                     if (monitor == null) {
                         //LOGGER.log(Level.FINEST, "Opening ChannelMonitor: {0}", pv);
-                        monitor = new ChannelMonitor(pv, context, executor);
-                        monitorMap.put(pv, monitor);
+                        try {
+                            monitor = new ChannelMonitor(pv, context, executor);
+                            monitorMap.put(pv, monitor);
+                        } catch (CAException e) {
+                            LOGGER.log(Level.WARNING, "Unable to create channel monitor; skipping", e);
+                        }
                     } else {
                         //LOGGER.log(Level.FINEST, "Joining ChannelMonitor: {0}", pv);
                     }
                 }
 
-                monitor.addListener(listener);
+                if (monitor != null) {
+                    monitor.addListener(listener);
+                }
             }
         }
 
@@ -294,6 +299,10 @@ public class ChannelManager {
 
         synchronized (clientMap) {
             Set<String> pvSet = clientMap.get(listener);
+
+            if (pvSet == null) {
+                pvSet = new HashSet<>();
+            }
 
             clientMap.put(listener, pvSet);
         }
