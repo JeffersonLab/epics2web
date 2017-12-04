@@ -57,7 +57,7 @@ public class ChannelManager {
 
         try {
             this.context.destroy(); // Destroy old context
-        } catch (CAException e) {
+        } catch (Exception e) { // IllegalStateException or CAException or whatever
             LOGGER.log(Level.SEVERE, "Unable to destroy context with unresponsive virtual circuit", e);
         }
 
