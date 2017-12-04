@@ -1,3 +1,4 @@
+
 package org.jlab.epics2web.epics;
 
 import com.cosylab.epics.caj.CAJChannel;
@@ -13,10 +14,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.json.JsonObjectBuilder;
@@ -31,14 +30,10 @@ public class ChannelManager {
 
     private static final Logger LOGGER = Logger.getLogger(ChannelManager.class.getName());
 
-    private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
-    private final Lock readLock = rwLock.readLock();
-    private final Lock writeLock = rwLock.writeLock();
+    private final Map<String, ChannelMonitor> monitorMap = new ConcurrentHashMap<>();
+    private final Map<PvListener, Set<String>> clientMap = new ConcurrentHashMap<>();
 
-    private final Map<String, ChannelMonitor> monitorMap = new HashMap<>();
-    private final Map<PvListener, Set<String>> clientMap = new HashMap<>();
-
-    private CAJContext context;
+    private volatile CAJContext context;
     private final ScheduledExecutorService executor;
 
     /**
@@ -53,32 +48,29 @@ public class ChannelManager {
     }
 
     public void reset(CAJContext context) {
-        writeLock.lock();
-
         try {
             this.context.destroy(); // Destroy old context
         } catch (Exception e) { // IllegalStateException or CAException or whatever
             LOGGER.log(Level.SEVERE, "Unable to destroy context with unresponsive virtual circuit", e);
         }
 
-        try {
-            this.context = context; // Assign new context
-            /*for(ChannelMonitor monitor: monitorMap.values()) {
-                try {
-                monitor.close();
-                } catch(Exception e) {
-                    LOGGER.log(Level.INFO, "Unable to close monitor", e);
-                }
-            }*/
+        synchronized (monitorMap) {
             monitorMap.clear();
-            Map<PvListener, Set<String>> old = new HashMap<>(clientMap);
-            clientMap.clear();
+            this.context = context; // Assign new context
+        }
+
+        Map<PvListener, Set<String>> old;
+
+        synchronized (clientMap) {
+            old = new HashMap<>(clientMap);
             for (PvListener listener : old.keySet()) {
-                Set<String> pvs = old.get(listener);
-                addPvs(listener, pvs);
+                clientMap.put(listener, Collections.EMPTY_SET);
             }
-        } finally {
-            writeLock.unlock();
+        }
+
+        for (PvListener listener : old.keySet()) {
+            Set<String> pvs = old.get(listener);
+            addPvs(listener, pvs);
         }
     }
 
@@ -221,23 +213,24 @@ public class ChannelManager {
      * @param addPvSet The set of PVs to monitor
      */
     public void addPvs(PvListener listener, Set<String> addPvSet) {
-        writeLock.lock();
-        try {
-            Set<String> newPvSet = new HashSet<>();
+        Set<String> newPvSet = new HashSet<>();
 
-            if (addPvSet != null) {
-                // Make sure empty string isn't included as a PV as that is invalid and is ignored
-                boolean emptyIncluded = addPvSet.remove("");
+        if (addPvSet != null) {
+            // Make sure empty string isn't included as a PV as that is invalid and is ignored
+            boolean emptyIncluded = addPvSet.remove("");
 
-                if (emptyIncluded) {
-                    LOGGER.log(Level.FINEST, "Empty string ignored in add PV request");
-                }
+            if (emptyIncluded) {
+                LOGGER.log(Level.FINEST, "Empty string ignored in add PV request");
+            }
 
-                newPvSet.addAll(addPvSet);
+            newPvSet.addAll(addPvSet);
 
-                for (String pv : addPvSet) {
-                    //LOGGER.log(Level.FINEST, "addListener pv: {0}; pv: {1}", new Object[]{session, pv});
-                    ChannelMonitor monitor = monitorMap.get(pv);
+            for (String pv : addPvSet) {
+                //LOGGER.log(Level.FINEST, "addListener pv: {0}; pv: {1}", new Object[]{session, pv});
+
+                ChannelMonitor monitor = null;
+                synchronized (monitorMap) {
+                    monitor = monitorMap.get(pv);
 
                     if (monitor == null) {
                         //LOGGER.log(Level.FINEST, "Opening ChannelMonitor: {0}", pv);
@@ -246,11 +239,13 @@ public class ChannelManager {
                     } else {
                         //LOGGER.log(Level.FINEST, "Joining ChannelMonitor: {0}", pv);
                     }
-
-                    monitor.addListener(listener);
                 }
-            }
 
+                monitor.addListener(listener);
+            }
+        }
+
+        synchronized (clientMap) {
             Set<String> oldPvSet = clientMap.get(listener);
 
             if (oldPvSet != null) {
@@ -258,8 +253,6 @@ public class ChannelManager {
             }
 
             clientMap.put(listener, newPvSet);
-        } finally {
-            writeLock.unlock();
         }
     }
 
@@ -270,9 +263,9 @@ public class ChannelManager {
      * @param clearPvSet The PV set to clear
      */
     public void clearPvs(PvListener listener, Set<String> clearPvSet) {
-        writeLock.lock();
-        try {
-            Set<String> newPvSet;
+        Set<String> newPvSet;
+
+        synchronized (clientMap) {
             Set<String> oldPvSet = clientMap.get(listener);
 
             if (oldPvSet != null) {
@@ -281,12 +274,10 @@ public class ChannelManager {
             } else {
                 newPvSet = new HashSet<>();
             }
-
-            removeFromChannels(listener, clearPvSet);
             clientMap.put(listener, newPvSet);
-        } finally {
-            writeLock.unlock();
         }
+
+        removeFromChannels(listener, clearPvSet);
     }
 
     /**
@@ -300,13 +291,11 @@ public class ChannelManager {
      * @param listener The PvListener
      */
     public void addListener(PvListener listener) {
-        writeLock.lock();
-        try {
+
+        synchronized (clientMap) {
             Set<String> pvSet = clientMap.get(listener);
 
             clientMap.put(listener, pvSet);
-        } finally {
-            writeLock.unlock();
         }
     }
 
@@ -320,19 +309,31 @@ public class ChannelManager {
     private void removeFromChannels(PvListener listener, Set<String> pvSet) {
         if (pvSet != null) { // Some clients don't immediately connect to a pv so have an empty pv list
             for (String pv : pvSet) {
+                int listenerCount = 0;
+
                 ChannelMonitor monitor = monitorMap.get(pv);
 
                 if (monitor != null) {
                     monitor.removeListener(listener);
+                }
 
-                    if (monitor.getListenerCount() == 0) {
-                        //LOGGER.log(Level.FINEST, "Closing ChannelMonitor: {0}", pv);
-                        try {
-                            monitor.close();
-                        } catch (IOException e) {
-                            LOGGER.log(Level.WARNING, "Unable to close monitor", e);
+                synchronized (monitorMap) {
+                    monitor = monitorMap.get(pv);
+
+                    if (monitor != null) {
+                        listenerCount = monitor.getListenerCount();
+                        if (listenerCount == 0) {
+                            monitorMap.remove(pv);
                         }
-                        monitorMap.remove(pv);
+                    }
+                }
+
+                // We call close without holding a lock
+                if (monitor != null && listenerCount == 0) {
+                    try {
+                        monitor.close();
+                    } catch (IOException e) {
+                        LOGGER.log(Level.WARNING, "Unable to close monitor", e);
                     }
                 }
             }
@@ -347,15 +348,7 @@ public class ChannelManager {
      */
     public void removeListener(PvListener listener) {
         //LOGGER.log(Level.FINEST, "removeListener: {0}", session);
-        Set<String> pvSet;
-        writeLock.lock();
-        try {
-            pvSet = clientMap.get(listener);
-
-            clientMap.remove(listener);
-        } finally {
-            writeLock.unlock();
-        }
+        Set<String> pvSet = clientMap.remove(listener);
 
         // Don't do this while holding writeLock above since this method could be called by monitorChanged or from websocket close!
         removeFromChannels(listener, pvSet);
@@ -368,14 +361,10 @@ public class ChannelManager {
      */
     public Map<String, Integer> getMonitorMap() {
         Map<String, Integer> map;
-        readLock.lock();
-        try {
-            map = new HashMap<>();
-            for (String pv : monitorMap.keySet()) {
-                map.put(pv, monitorMap.get(pv).getListenerCount());
-            }
-        } finally {
-            readLock.unlock();
+        Map<String, ChannelMonitor> copy = new HashMap<>(monitorMap); // First copy map so that concurrent changes won't bother us
+        map = new HashMap<>();
+        for (String pv : copy.keySet()) {
+            map.put(pv, copy.get(pv).getListenerCount());
         }
         return map;
     }
@@ -388,12 +377,7 @@ public class ChannelManager {
      */
     public Map<PvListener, Set<String>> getClientMap() {
         Map<PvListener, Set<String>> map;
-        readLock.lock();
-        try {
-            map = Collections.unmodifiableMap(clientMap);
-        } finally {
-            readLock.unlock();
-        }
+        map = Collections.unmodifiableMap(clientMap);
         return map;
     }
 }
