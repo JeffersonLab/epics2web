@@ -63,7 +63,7 @@ public class ChannelManager {
         synchronized (clientMap) {
             old = new HashMap<>(clientMap);
             for (PvListener listener : old.keySet()) {
-                clientMap.put(listener, Collections.EMPTY_SET);
+                clientMap.put(listener, Collections.emptySet());
             }
         }
 
