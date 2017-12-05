@@ -17,6 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 import javax.json.JsonObjectBuilder;
 
 public class ChannelManager {
@@ -69,7 +70,9 @@ public class ChannelManager {
 
         for (PvListener listener : old.keySet()) {
             Set<String> pvs = old.get(listener);
-            addPvs(listener, pvs);
+            String listOPvs = pvs.stream().collect(Collectors.joining(" "));
+            //addPvs(listener, pvs);
+            LOGGER.log(Level.INFO, "Client: {0}, PVs: {1}", new Object[]{listener, listOPvs});
         }
     }
 

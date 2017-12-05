@@ -52,8 +52,11 @@ public class Application implements ServletContextListener {
     private static final Logger LOGGER = Logger.getLogger(Application.class.getName());
     private static ScheduledExecutorService timeoutExecutor = null;
     private static ExecutorService writerExecutor = null;
+    private static ExecutorService resetExecutor = null;
     private static ContextFactory factory = null;
     private static volatile CAJContext context = null;
+
+    public static volatile boolean RESTARTING = false;
 
     @Override
     public void contextInitialized(ServletContextEvent sce) {
@@ -68,6 +71,7 @@ public class Application implements ServletContextListener {
         }
         timeoutExecutor = Executors.newScheduledThreadPool(TIMEOUT_EXECUTOR_POOL_SIZE, new CustomPrefixThreadFactory("CA-Timeout-"));
         writerExecutor = Executors.newSingleThreadExecutor(new CustomPrefixThreadFactory("Web-Socket-Writer-"));
+        resetExecutor = Executors.newSingleThreadExecutor(new CustomPrefixThreadFactory("Resetter-"));
         channelManager = new ChannelManager(context, timeoutExecutor);
 
         try {
@@ -149,6 +153,10 @@ public class Application implements ServletContextListener {
         if (writerExecutor != null) {
             writerExecutor.shutdownNow();
         }
+        
+        if(resetExecutor != null) {
+            resetExecutor.shutdown();
+        }
 
         if (timeoutExecutor != null) {
             try {
@@ -173,27 +181,26 @@ public class Application implements ServletContextListener {
     }
 
     private void registerContextListeners(CAJContext c) throws CAException {
-            c.addContextExceptionListener(new ContextExceptionListener() {
-                @Override
-                public void contextException(ContextExceptionEvent ev) {
-                    LOGGER.log(Level.SEVERE, "EPICS CA Context Exception: {0}", ev.getMessage());
-                    LOGGER.log(Level.SEVERE, "Channel: {0}", ev.getChannel() == null ? "N/A" : ev.getChannel().getName());
-                }
+        c.addContextExceptionListener(new ContextExceptionListener() {
+            @Override
+            public void contextException(ContextExceptionEvent ev) {
+                LOGGER.log(Level.SEVERE, "EPICS CA Context Exception: {0}", ev.getMessage());
+                LOGGER.log(Level.SEVERE, "Channel: {0}", ev.getChannel() == null ? "N/A" : ev.getChannel().getName());
+            }
 
-                @Override
-                public void contextVirtualCircuitException(ContextVirtualCircuitExceptionEvent ev) {
-                    LOGGER.log(Level.SEVERE, "EPICS CA Context Virtual Circuit Exception: Status: {0}, Address: {1}, Fatal: {2}", new Object[]{ev.getStatus(), ev.getVirtualCircuit(), ev.getStatus().isFatal()});
+            @Override
+            public void contextVirtualCircuitException(ContextVirtualCircuitExceptionEvent ev) {
+                LOGGER.log(Level.SEVERE, "EPICS CA Context Virtual Circuit Exception: Status: {0}, Address: {1}, Fatal: {2}", new Object[]{ev.getStatus(), ev.getVirtualCircuit(), ev.getStatus().isFatal()});
 
-                    LOGGER.log(Level.SEVERE, "Source: {0}", ev.getSource());
-                    
-                    //int statusCode = ev.getStatus().getStatusCode();
-                    //if(statusCode == CAStatus.UNRESPTMO.getStatusCode()) {
-                        // Only do a reset if Unresponsive?
-                    //}
-                    
-                    LOGGER.log(Level.SEVERE, "ATTEMPTING A CONTEXT RESET");
+                LOGGER.log(Level.SEVERE, "Source: {0}", ev.getSource());
 
-                    /*InetAddress ip = ev.getVirtualCircuit(); 
+                //int statusCode = ev.getStatus().getStatusCode();
+                //if(statusCode == CAStatus.UNRESPTMO.getStatusCode()) {
+                // Only do a reset if Unresponsive?
+                //}
+                LOGGER.log(Level.SEVERE, "ATTEMPTING A CONTEXT RESET");
+
+                /*InetAddress ip = ev.getVirtualCircuit(); 
                     int port = 5064;
                     InetSocketAddress ipAndPort = new InetSocketAddress(ip, port);
                     Transport[] transportArray = context.getTransportRegistry().get(ipAndPort);
@@ -203,30 +210,35 @@ public class Application implements ServletContextListener {
                         trans.changedTransport();
                         trans.close(true);
                     }*/
-                    
-                    try {
-                        context = factory.newContext();
-                        registerContextListeners(context);
-                        
-                        // We run the reset in a separate thread as the contextVirtualCircuitException is generally called from Timer thread, which is hold locks in a bad way
-                        timeoutExecutor.execute(new Runnable(){
-                            @Override
-                            public void run() {
+                try {
+                    context = factory.newContext();
+                    registerContextListeners(context);
+
+                    // We run the reset in a separate thread as the contextVirtualCircuitException is generally called from Timer thread, which is hold locks in a bad way
+                    resetExecutor.execute(new Runnable() {
+                        @Override
+                        public void run() {
+                            LOGGER.log(Level.INFO, "Starting reset procedure");
+                            try {
+                                RESTARTING = true;
                                 channelManager.reset(context);
+                            } finally {
+                                RESTARTING = false;
                             }
-                        });
+                        }
+                    });
 
-                    } catch (CAException e) {
-                        LOGGER.log(Level.SEVERE, "Unable to reset context", e);
-                    }
+                } catch (CAException e) {
+                    LOGGER.log(Level.SEVERE, "Unable to reset context", e);
                 }
-            });
+            }
+        });
 
-            c.addContextMessageListener(new ContextMessageListener() {
-                @Override
-                public void contextMessage(ContextMessageEvent ev) {
-                    LOGGER.log(Level.WARNING, "EPICS CA Context Messge Event: {0}", ev.getMessage());
-                }
-            });
+        c.addContextMessageListener(new ContextMessageListener() {
+            @Override
+            public void contextMessage(ContextMessageEvent ev) {
+                LOGGER.log(Level.WARNING, "EPICS CA Context Messge Event: {0}", ev.getMessage());
+            }
+        });
     }
 }

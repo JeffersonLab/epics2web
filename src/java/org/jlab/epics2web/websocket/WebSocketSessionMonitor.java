@@ -8,7 +8,7 @@ import org.jlab.epics2web.epics.PvListener;
 
 /**
  * Wires a WebSocket session to an EPICS PV monitor.
- * 
+ *
  * @author ryans
  */
 public class WebSocketSessionMonitor implements PvListener {
@@ -20,7 +20,7 @@ public class WebSocketSessionMonitor implements PvListener {
 
     /**
      * Create a new WebSocketSessionMonitor.
-     * 
+     *
      * @param session The web socket session
      * @param manager The session manager
      */
@@ -38,5 +38,19 @@ public class WebSocketSessionMonitor implements PvListener {
     @Override
     public void notifyPvUpdate(String pv, DBR dbr) {
         manager.sendUpdate(session, pv, dbr);
+    }
+
+    @Override
+    public String toString() {
+        String description = "WebSession: ";
+        if (session != null) {
+            String name = (String) session.getUserProperties().get("name");
+            String host = (String) session.getUserProperties().get("ip");
+            if (host == null) {
+                host = (String) session.getUserProperties().get("remoteAddr");
+            }
+            description = description + host + "; " + name;
+        }
+        return description;
     }
 }

@@ -138,6 +138,10 @@ public class MonitorEndpoint {
     public String onMessage(String message, Session session) {
         //LOGGER.log(Level.FINEST, "Client message: {0}", message);
 
+        if(Application.RESTARTING) {
+            return null;
+        }
+        
         Application.sessionManager.recordInteractionDate(session);
 
         try (JsonReader reader = Json.createReader(new StringReader(message))) {
@@ -161,8 +165,10 @@ public class MonitorEndpoint {
             } else {
                 LOGGER.log(Level.WARNING, "Unknown client request: {0}", message);
             }
+        } catch (IllegalStateException e) { // state might be bad for various reasons so don't dump stack
+            LOGGER.log(Level.INFO, "Unable to handle client message", e.getMessage());
         } catch (Exception e) {
-            LOGGER.log(Level.WARNING, "Unable to read client message: " + message, e);
+            LOGGER.log(Level.WARNING, "Unable to handle client message: " + message, e);
         }
         return null;
     }

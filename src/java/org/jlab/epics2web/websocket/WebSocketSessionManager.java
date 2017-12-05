@@ -282,14 +282,19 @@ public class WebSocketSessionManager {
 
     @SuppressWarnings("unchecked")
     public void send(Session session, String pv, String msg) {
+        
+        if(Application.RESTARTING) {
+            return;
+        }
+        
         if (session.isOpen()) {
             if (Application.USE_QUEUE) {
                 //LinkedHashSet updatequeue = (LinkedHashSet) session.getUserProperties().get("updatequeue");
                 ConcurrentLinkedQueue<String> writequeue = (ConcurrentLinkedQueue<String>) session.getUserProperties().get("writequeue");
 
                 //System.out.println("Queue Size: " + writequeue.size());
-                if (writequeue.size() > 1000) {
-                    LOGGER.log(Level.FINEST, "Dropping message: {0}", msg);
+                if (writequeue.size() > 2000) {
+                    LOGGER.log(Level.INFO, "Dropping message: {0}", msg);
                 } else {
                     writequeue.offer(msg);
                 }
