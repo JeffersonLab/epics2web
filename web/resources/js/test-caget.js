@@ -7,13 +7,17 @@ jlab.epics2web.doGet = function () {
         /*Replace all commas with space, split on any whitespace, filter out empty strings*/
         let tokens = input.replace(new RegExp(',', 'g'), " ").split(/\s/).filter(Boolean);
 
-        let form = $("#caget-form");
+        let form = $('<form action="caget" method="get" style="display: none;"></form>');
 
         for (let i = 0; i < tokens.length; i++) {
             form.append('<input type="text" name="pv" value="' + tokens[i] + '"/>');
         }
+        
+        if($("#n").prop('checked')) {
+            form.append('<input type="text" name="n" value="Y"/>');
+        }
 
-        form.submit();
+        form.appendTo('body').submit();
     }
 };
 

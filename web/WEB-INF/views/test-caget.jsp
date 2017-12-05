@@ -42,8 +42,6 @@
                     </tr>
                 </tbody>
             </table>
-        </form>
-        <form id="caget-form" action="caget" method="get" style="display: none;">
         </form>                       
         <script type="text/javascript" src="${pageContext.request.contextPath}/resources/js/jquery-1.10.2.min.js"></script>
         <script type="text/javascript" src="${pageContext.request.contextPath}/resources/js/test-caget.js?v=${initParam.releaseNumber}"></script>
