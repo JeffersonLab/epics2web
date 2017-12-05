@@ -76,7 +76,7 @@ public class Application implements ServletContextListener {
                                 try {
                                     session.getBasicRemote().sendText(msg);
                                 } catch (IllegalStateException e) { // If session closes between time session.isOpen() and sentText(msg) then you'll get this exception.  Not an issue.
-                                    LOGGER.log(Level.INFO, "Unable to send message", e.getMessage());
+                                    LOGGER.log(Level.INFO, "Unable to send message: {0}", e.getMessage());
                                 } catch (IOException e) {
                                     LOGGER.log(Level.WARNING, "Unable to send message", e);
                                 }
