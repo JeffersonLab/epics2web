@@ -30,6 +30,8 @@ Failure:
 {error: <error-reason>}
 ```
 
+Note: You can optionally provide a parameter named "n" (the value can be anything) and it will be treated like "caget -n", which results in enum type PVs returning the numeric value instead of the string label.
+
 ## Monitor API
 
 ### Methods
