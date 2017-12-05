@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project name="epics2web" default="clean-build" basedir=".">    
-    <property name="project.release.version" value="1.7.2"/>
-    <property name="project.release.date" value="04 Dec 2017"/>
+    <property name="project.release.version" value="1.7.3"/>
+    <property name="project.release.date" value="05 Dec 2017"/>
     <property name="project.release.production" value="true"/>
     <property environment="env"/>   
     <fail unless="env.CATALINA_HOME" message="Environment variable CATALINA_HOME must be set in order to include Tomcat libraries in classpath"/>
