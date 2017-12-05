@@ -229,15 +229,12 @@ public class Application implements ServletContextListener {
             public void contextVirtualCircuitException(ContextVirtualCircuitExceptionEvent ev) {
                 LOGGER.log(Level.SEVERE, "EPICS CA Context Virtual Circuit Exception: Status: {0}, Address: {1}, Fatal: {2}", new Object[]{ev.getStatus(), ev.getVirtualCircuit(), ev.getStatus().isFatal()});
 
-                LOGGER.log(Level.SEVERE, "Source: {0}", ev.getSource());
+                // Only do a reset if Unresponsive                
+                int statusCode = ev.getStatus().getStatusCode();
+                if (statusCode == CAStatus.UNRESPTMO.getStatusCode()) {
+                    LOGGER.log(Level.SEVERE, "ATTEMPTING A CONTEXT RESET");
 
-                //int statusCode = ev.getStatus().getStatusCode();
-                //if(statusCode == CAStatus.UNRESPTMO.getStatusCode()) {
-                // Only do a reset if Unresponsive?
-                //}
-                LOGGER.log(Level.SEVERE, "ATTEMPTING A CONTEXT RESET");
-
-                /*InetAddress ip = ev.getVirtualCircuit(); 
+                    /*InetAddress ip = ev.getVirtualCircuit(); 
                     int port = 5064;
                     InetSocketAddress ipAndPort = new InetSocketAddress(ip, port);
                     Transport[] transportArray = context.getTransportRegistry().get(ipAndPort);
@@ -247,26 +244,27 @@ public class Application implements ServletContextListener {
                         trans.changedTransport();
                         trans.close(true);
                     }*/
-                try {
-                    context = factory.newContext();
-                    registerContextListeners(context);
+                    try {
+                        context = factory.newContext();
+                        registerContextListeners(context);
 
-                    // We run the reset in a separate thread as the contextVirtualCircuitException is generally called from Timer thread, which is hold locks in a bad way
-                    resetExecutor.execute(new Runnable() {
-                        @Override
-                        public void run() {
-                            LOGGER.log(Level.INFO, "Starting reset procedure");
-                            try {
-                                RESTARTING = true;
-                                channelManager.reset(context);
-                            } finally {
-                                RESTARTING = false;
+                        // We run the reset in a separate thread as the contextVirtualCircuitException is generally called from Timer thread, which is hold locks in a bad way
+                        resetExecutor.execute(new Runnable() {
+                            @Override
+                            public void run() {
+                                LOGGER.log(Level.INFO, "Starting reset procedure");
+                                try {
+                                    RESTARTING = true;
+                                    channelManager.reset(context);
+                                } finally {
+                                    RESTARTING = false;
+                                }
                             }
-                        }
-                    });
+                        });
 
-                } catch (CAException e) {
-                    LOGGER.log(Level.SEVERE, "Unable to reset context", e);
+                    } catch (CAException e) {
+                        LOGGER.log(Level.SEVERE, "Unable to reset context", e);
+                    }
                 }
             }
         });
