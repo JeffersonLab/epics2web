@@ -10,7 +10,7 @@ import javax.servlet.http.HttpServletResponse;
 /**
  * Controller for the Overview page.
  * 
- * @author ryans
+ * @author slominskir
  */
 @WebServlet(name = "Overview", urlPatterns = {"/overview"})
 public class Overview extends HttpServlet {    

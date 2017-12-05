@@ -6,7 +6,7 @@ import gov.aps.jca.dbr.DBRType;
 /**
  * A contract for classes interested in notifications from an EPICS channel monitor.
  * 
- * @author ryans
+ * @author slominskir
  */
 public interface PvListener {
 

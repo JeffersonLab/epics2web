@@ -11,7 +11,7 @@ import javax.servlet.http.HttpSession;
  * does not expose the remote address. Note: some implementations do (Tomcat does not, GlassFish
  * does).
  *
- * @author ryans
+ * @author slominskir
  */
 @WebListener
 public class RequestListener implements ServletRequestListener {

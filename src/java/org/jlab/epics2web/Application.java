@@ -13,13 +13,16 @@ import gov.aps.jca.event.ContextExceptionListener;
 import gov.aps.jca.event.ContextMessageEvent;
 import gov.aps.jca.event.ContextMessageListener;
 import gov.aps.jca.event.ContextVirtualCircuitExceptionEvent;
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -33,17 +36,19 @@ import javax.websocket.RemoteEndpoint;
 import javax.websocket.SendHandler;
 import javax.websocket.SendResult;
 import javax.websocket.Session;
+import org.jlab.epics2web.websocket.WriteStrategy;
 
 /**
  * Main class that ties into application lifecycle; creates and destroys key
  * resources.
  *
- * @author ryans
+ * @author slominskir
  */
 @WebListener
 public class Application implements ServletContextListener {
 
-    public static final boolean USE_QUEUE = false;
+    public static final WriteStrategy WRITE_STRATEGY = WriteStrategy.BLOCKING_QUEUE;
+    public static final int WRITE_QUEUE_SIZE_LIMIT = 2000;
 
     public static ChannelManager channelManager = null;
     public static WebSocketSessionManager sessionManager = new WebSocketSessionManager();
@@ -58,6 +63,38 @@ public class Application implements ServletContextListener {
 
     public static volatile boolean RESTARTING = false;
 
+    public static Future<?> writeFromBlockingQueue(Session session) {
+        return writerExecutor.submit(new Runnable() {
+            @Override
+            public void run() {
+                final ArrayBlockingQueue<String> writequeue = (ArrayBlockingQueue<String>) session.getUserProperties().get("writequeue");
+                try {
+                    while (true) {
+                        if (session.isOpen()) {
+                            String msg = writequeue.take(); // Block until msg to deliver
+                            if (msg != null) {
+                                try {
+                                    session.getBasicRemote().sendText(msg);
+                                } catch (IllegalStateException e) { // If session closes between time session.isOpen() and sentText(msg) then you'll get this exception.  Not an issue.
+                                    LOGGER.log(Level.INFO, "Unable to send message", e.getMessage());
+                                } catch (IOException e) {
+                                    LOGGER.log(Level.WARNING, "Unable to send message", e);
+                                }
+                            }
+                        } else {
+                            sessionManager.removeClient(session);
+
+                            LOGGER.log(Level.INFO, "Session closed; shutting down write thread");
+                            break;
+                        }
+                    }
+                } catch (InterruptedException e) {
+                    LOGGER.log(Level.INFO, "Shutting down writer thread as requested", e);
+                }
+            }
+        });
+    }
+
     @Override
     public void contextInitialized(ServletContextEvent sce) {
         LOGGER.log(Level.INFO, ">>>>>>>>>>>>>>>>>>>>>>>>>> CONTEXT INITIALIZED");
@@ -70,7 +107,7 @@ public class Application implements ServletContextListener {
             LOGGER.log(Level.SEVERE, "Unable to obtain EPICS CA context", e);
         }
         timeoutExecutor = Executors.newScheduledThreadPool(TIMEOUT_EXECUTOR_POOL_SIZE, new CustomPrefixThreadFactory("CA-Timeout-"));
-        writerExecutor = Executors.newSingleThreadExecutor(new CustomPrefixThreadFactory("Web-Socket-Writer-"));
+        writerExecutor = Executors.newCachedThreadPool(new CustomPrefixThreadFactory("Web-Socket-Writer-"));
         resetExecutor = Executors.newSingleThreadExecutor(new CustomPrefixThreadFactory("Resetter-"));
         channelManager = new ChannelManager(context, timeoutExecutor);
 
@@ -80,7 +117,7 @@ public class Application implements ServletContextListener {
             LOGGER.log(Level.SEVERE, "Unable to register context callbacks", e);
         }
 
-        if (USE_QUEUE) {
+        if (WRITE_STRATEGY == WriteStrategy.ASYNC_QUEUE) {
             writerExecutor.execute(new Runnable() {
                 @Override
                 @SuppressWarnings("unchecked")
@@ -153,8 +190,8 @@ public class Application implements ServletContextListener {
         if (writerExecutor != null) {
             writerExecutor.shutdownNow();
         }
-        
-        if(resetExecutor != null) {
+
+        if (resetExecutor != null) {
             resetExecutor.shutdown();
         }
 

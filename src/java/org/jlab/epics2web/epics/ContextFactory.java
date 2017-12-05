@@ -18,7 +18,7 @@ import java.util.logging.Logger;
  * <p>This class is a singleton which is created on application startup and 
  * destroyed on application shutdown.</p>
  * 
- * @author ryans
+ * @author slominskir
  */
 public class ContextFactory {
     

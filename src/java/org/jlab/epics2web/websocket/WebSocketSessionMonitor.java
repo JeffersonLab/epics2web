@@ -9,7 +9,7 @@ import org.jlab.epics2web.epics.PvListener;
 /**
  * Wires a WebSocket session to an EPICS PV monitor.
  *
- * @author ryans
+ * @author slominskir
  */
 public class WebSocketSessionMonitor implements PvListener {
 

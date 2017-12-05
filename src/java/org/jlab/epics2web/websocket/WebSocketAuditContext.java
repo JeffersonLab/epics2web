@@ -8,7 +8,7 @@ import java.util.Map;
  * socket API currently does not expose this information. This is somewhat dangerous from a
  * class-loader leak perspective as it is using ThreadLocal.
  *
- * @author ryans
+ * @author slominskir
  */
 public class WebSocketAuditContext {
 

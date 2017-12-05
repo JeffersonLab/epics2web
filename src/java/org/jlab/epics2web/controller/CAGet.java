@@ -21,7 +21,7 @@ import org.jlab.epics2web.Application;
 /**
  * Controller for the Overview page.
  * 
- * @author ryans
+ * @author slominskir
  */
 @WebServlet(name = "CAGet", urlPatterns = {"/caget"})
 public class CAGet extends HttpServlet {    

@@ -29,7 +29,7 @@ import java.util.logging.Logger;
  * Responsible for monitoring an EPICS channel and notifying registered
  * listeners.
  *
- * @author ryans
+ * @author slominskir
  */
 class ChannelMonitor implements Closeable {
 

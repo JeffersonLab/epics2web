@@ -16,7 +16,7 @@ import org.jlab.epics2web.epics.ChannelManager;
 /**
  * Controller for the Console page.
  * 
- * @author ryans
+ * @author slominskir
  */
 @WebServlet(name = "WebConsole", urlPatterns = {"/console"})
 public class WebConsole extends HttpServlet {

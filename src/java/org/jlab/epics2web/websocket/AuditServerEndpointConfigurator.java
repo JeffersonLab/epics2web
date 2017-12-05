@@ -11,7 +11,7 @@ import javax.websocket.server.ServerEndpointConfig;
  * Web socket configuration class. This is necessary to obtain connection headers and remote address
  * of clients due to deficiencies in Java web socket API specification.
  *
- * @author ryans
+ * @author slominskir
  */
 public class AuditServerEndpointConfigurator extends ServerEndpointConfig.Configurator {
 

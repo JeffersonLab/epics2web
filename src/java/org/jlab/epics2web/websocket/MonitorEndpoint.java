@@ -6,7 +6,9 @@ import java.net.URLDecoder;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -28,7 +30,7 @@ import org.jlab.epics2web.Application;
 /**
  * Controller for the EPICS web socket monitor.
  *
- * @author ryans
+ * @author slominskir
  */
 @ServerEndpoint(value = "/monitor", configurator = AuditServerEndpointConfigurator.class)
 public class MonitorEndpoint {
@@ -99,9 +101,14 @@ public class MonitorEndpoint {
                 WebSocketAuditContext.setCurrentInstance(null);
             }
 
-            if (Application.USE_QUEUE) {
+            if (Application.WRITE_STRATEGY == WriteStrategy.ASYNC_QUEUE) {
                 session.getUserProperties().put("isWriting", new AtomicBoolean(false));
                 session.getUserProperties().put("writequeue", new ConcurrentLinkedQueue());
+            } else if (Application.WRITE_STRATEGY == WriteStrategy.BLOCKING_QUEUE) {
+                ArrayBlockingQueue<String> writequeue = new ArrayBlockingQueue<>(Application.WRITE_QUEUE_SIZE_LIMIT);
+                session.getUserProperties().put("writequeue", writequeue);
+                Future<?> writeThreadFuture = Application.writeFromBlockingQueue(session);
+                session.getUserProperties().put("writeThreadFuture", writeThreadFuture);
             }
 
             Application.sessionManager.addClient(session);
@@ -112,6 +119,12 @@ public class MonitorEndpoint {
     public void onClose(Session session, CloseReason reason) {
         //LOGGER.log(Level.FINEST, "close; Reason: {0}", reason);
         if (session != null) {
+
+            if (Application.WRITE_STRATEGY == WriteStrategy.BLOCKING_QUEUE) {
+                Future<?> writeThreadFuture = (Future<?>) session.getUserProperties().get("writeThreadFuture");
+                writeThreadFuture.cancel(true);
+            }
+
             Application.sessionManager.removeClient(session);
         }
     }
@@ -121,6 +134,12 @@ public class MonitorEndpoint {
         //t.printStackTrace();
         LOGGER.log(Level.WARNING, "WebSocket Error: {0}", t.getMessage());
         if (session != null) {
+
+            if (Application.WRITE_STRATEGY == WriteStrategy.BLOCKING_QUEUE) {
+                Future<?> writeThreadFuture = (Future<?>) session.getUserProperties().get("writeThreadFuture");
+                writeThreadFuture.cancel(true);
+            }
+
             Application.sessionManager.removeClient(session);
         }
 
@@ -138,10 +157,10 @@ public class MonitorEndpoint {
     public String onMessage(String message, Session session) {
         //LOGGER.log(Level.FINEST, "Client message: {0}", message);
 
-        if(Application.RESTARTING) {
+        if (Application.RESTARTING) {
             return null;
         }
-        
+
         Application.sessionManager.recordInteractionDate(session);
 
         try (JsonReader reader = Json.createReader(new StringReader(message))) {

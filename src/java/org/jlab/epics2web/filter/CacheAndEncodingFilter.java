@@ -23,7 +23,7 @@ import javax.servlet.http.HttpServletResponseWrapper;
  * a change to the file. A good way to do this is by adding a version string into the file path or
  * as a URL parameter.
  *
- * @author ryans
+ * @author slominskir
  */
 @WebFilter(filterName = "CacheAndEncodingFilter", urlPatterns = {"/*"}, dispatcherTypes = {
     DispatcherType.REQUEST, DispatcherType.FORWARD})

@@ -11,6 +11,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
@@ -29,7 +30,7 @@ import org.jlab.epics2web.epics.PvListener;
 /**
  * Manages web socket sessions and ties them to channel access monitors.
  *
- * @author ryans
+ * @author slominskir
  */
 public class WebSocketSessionManager {
 
@@ -283,21 +284,30 @@ public class WebSocketSessionManager {
     @SuppressWarnings("unchecked")
     public void send(Session session, String pv, String msg) {
         
-        if(Application.RESTARTING) {
+        /*if(Application.RESTARTING) {
             return;
-        }
+        }*/
         
         if (session.isOpen()) {
-            if (Application.USE_QUEUE) {
-                //LinkedHashSet updatequeue = (LinkedHashSet) session.getUserProperties().get("updatequeue");
+            if (Application.WRITE_STRATEGY == WriteStrategy.ASYNC_QUEUE) {
                 ConcurrentLinkedQueue<String> writequeue = (ConcurrentLinkedQueue<String>) session.getUserProperties().get("writequeue");
 
                 //System.out.println("Queue Size: " + writequeue.size());
-                if (writequeue.size() > 2000) {
+                if (writequeue.size() > Application.WRITE_QUEUE_SIZE_LIMIT) {
                     LOGGER.log(Level.INFO, "Dropping message: {0}", msg);
                 } else {
                     writequeue.offer(msg);
                 }
+            } else if(Application.WRITE_STRATEGY == WriteStrategy.BLOCKING_QUEUE) {
+                ArrayBlockingQueue<String> writequeue = (ArrayBlockingQueue<String>) session.getUserProperties().get("writequeue");
+                
+                // TODO: should be using a fancy custom BlockingQueue that prioritizes info messages and also replaces queued update messages with most recent update (don't notify of stale updates - just move on to fresh updates)
+                
+                boolean success = writequeue.offer(msg);
+                
+                if(!success) {
+                    LOGGER.log(Level.INFO, "Dropping message: {0}", msg);                    
+                }                
             } else {
                 try {
                     synchronized (session) {

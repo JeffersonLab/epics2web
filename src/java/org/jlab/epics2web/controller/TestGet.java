@@ -10,7 +10,7 @@ import javax.servlet.http.HttpServletResponse;
 /**
  * Controller for the Test page.
  * 
- * @author ryans
+ * @author slominskir
  */
 @WebServlet(name = "TestGet", urlPatterns = {"/test-caget"})
 public class TestGet extends HttpServlet {    
