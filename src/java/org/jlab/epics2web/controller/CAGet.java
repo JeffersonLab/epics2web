@@ -54,8 +54,15 @@ public class CAGet extends HttpServlet {
         try {
             pvs = request.getParameterValues("pv");
             jsonp = request.getParameter("jsonp");
+            String n = request.getParameter("n");
 
-            dbrList = Application.channelManager.get(pvs);
+            boolean enumLabel = true;
+            
+            if(n != null) {
+                enumLabel = false;
+            }
+            
+            dbrList = Application.channelManager.get(pvs, enumLabel);
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Unable to obtain dbr list", e);
             errorReason = e.getClass().getSimpleName() + ": " + e.getMessage();

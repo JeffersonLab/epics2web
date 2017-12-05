@@ -5,6 +5,7 @@ import com.cosylab.epics.caj.CAJContext;
 import gov.aps.jca.CAException;
 import gov.aps.jca.TimeoutException;
 import gov.aps.jca.dbr.DBR;
+import gov.aps.jca.dbr.DBRType;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -103,8 +104,11 @@ public class ChannelManager {
                 short value = ((gov.aps.jca.dbr.SHORT) dbr).getShortValue()[0];
                 builder.add("value", value);
             } else if (dbr.isENUM()) {
+                System.out.println("is enum!");
                 short value = ((gov.aps.jca.dbr.ENUM) dbr).getEnumValue()[0];
+                System.out.println(((gov.aps.jca.dbr.ENUM) dbr).toString());
                 builder.add("value", value);
+                System.out.println(dbr.getType());
             } else if (dbr.isBYTE()) {
                 byte value = ((gov.aps.jca.dbr.BYTE) dbr).getByteValue()[0];
                 builder.add("value", value);
@@ -120,46 +124,17 @@ public class ChannelManager {
     }
 
     /**
-     * Perform a synchronous (blocking) CA-GET request of the given PV.
-     *
-     * @param pv The EPICS CA PV name
-     * @return The EPICS DataBaseRecord
-     * @throws CAException If unable to perform the CA-GET due to IO
-     * @throws TimeoutException If unable to perform the CA-GET in a timely
-     * fashion
-     */
-    public DBR get(String pv) throws CAException, TimeoutException {
-
-        CAJChannel channel = null;
-        DBR dbr = null;
-
-        try {
-            channel = (CAJChannel) context.createChannel(pv);
-
-            context.pendIO(PEND_TIMEOUT_SECONDS);
-
-            dbr = channel.get();
-
-            context.pendIO(PEND_TIMEOUT_SECONDS);
-        } finally {
-            if (channel != null) {
-                channel.destroy();
-            }
-        }
-
-        return dbr;
-    }
-
-    /**
      * Perform a synchronous (blocking) CA-GET request of the given PVs.
      *
      * @param pvs The EPICS CA PV names
+     * @param enumLabel true if result should be enum label (ignored if not of
+     * type enum); false for numeric value
      * @return The EPICS DataBaseRecord
      * @throws CAException If unable to perform the CA-GET due to IO
      * @throws TimeoutException If unable to perform the CA-GET in a timely
      * fashion
      */
-    public List<DBR> get(String[] pvs) throws CAException, TimeoutException {
+    public List<DBR> get(String[] pvs, boolean enumLabel) throws CAException, TimeoutException {
 
         // TODO: If we were really clever we could check if a PV is currently being monitored and just return the most recent value.
         List<DBR> dbrList = new ArrayList<>();
@@ -175,7 +150,7 @@ public class ChannelManager {
                 context.pendIO(PEND_TIMEOUT_SECONDS);
 
                 for (int i = 0; i < pvs.length; i++) {
-                    dbrList.add(channels[i].get());
+                    dbrList.add(doGet(channels[i], enumLabel));
                 }
 
                 context.pendIO(PEND_TIMEOUT_SECONDS);
@@ -189,6 +164,18 @@ public class ChannelManager {
         }
 
         return dbrList;
+    }
+
+    private DBR doGet(CAJChannel channel, boolean enumLabel) throws CAException {
+        DBR dbr;
+
+        if (enumLabel && channel.getFieldType().isENUM()) {
+            dbr = channel.get(DBRType.STRING, 1);
+        } else {
+            dbr = channel.get();
+        }
+
+        return dbr;
     }
 
     /**
