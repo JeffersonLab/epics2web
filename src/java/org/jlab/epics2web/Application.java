@@ -63,6 +63,7 @@ public class Application implements ServletContextListener {
 
     public static volatile boolean RESTARTING = false;
 
+    @SuppressWarnings("unchecked")
     public static Future<?> writeFromBlockingQueue(Session session) {
         return writerExecutor.submit(new Runnable() {
             @Override
