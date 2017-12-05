@@ -89,7 +89,7 @@ public class Application implements ServletContextListener {
                         }
                     }
                 } catch (InterruptedException e) {
-                    LOGGER.log(Level.INFO, "Shutting down writer thread as requested", e);
+                    //LOGGER.log(Level.INFO, "Shutting down writer thread as requested", e);
                 }
             }
         });
