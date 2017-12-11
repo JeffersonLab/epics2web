@@ -3,6 +3,7 @@ package org.jlab.epics2web.websocket;
 import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -129,6 +130,17 @@ public class MonitorEndpoint {
             }
 
             Application.sessionManager.removeClient(session);
+
+            AtomicLong dropCount = (AtomicLong) session.getUserProperties().get("droppedMessageCount");
+            Date lastUpdated = (Date) session.getUserProperties().get("lastUpdated");
+            String host = (String) session.getUserProperties().get("ip");
+            if (host == null) {
+                host = (String) session.getUserProperties().get("remoteAddr");
+            }
+            
+            if (dropCount.get() > 0) {
+                LOGGER.log(Level.INFO, "Closing session; Host: {0}; Drop count: {1}; Last Interaction: {2}", new Object[]{host, dropCount.get(), lastUpdated});
+            }
         }
     }
 
