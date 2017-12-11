@@ -42,6 +42,7 @@
                     <th>User Agent</th>
                     <th>Name</th>
                     <th>PVs</th>
+                    <th>Dropped Messages</th>
                 </tr>
             </thead>
             <tbody>
@@ -52,6 +53,7 @@
                         <td><c:out value="${client.key.userProperties.agent}"/></td>
                         <td><c:out value="${client.key.userProperties.name}"/></td>
                         <td>(${client.value == null ? '0' : client.value.size()}) <c:out value="${client.value}"/></td>
+                        <td><fmt:formatNumber value="${client.key.userProperties.droppedMessageCount}"/></td>
                     </tr>
                 </c:forEach>
             </tbody>

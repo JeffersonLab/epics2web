@@ -10,6 +10,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.json.Json;
@@ -100,6 +101,8 @@ public class MonitorEndpoint {
                 // Try to prevent classloader leak
                 WebSocketAuditContext.setCurrentInstance(null);
             }
+
+            session.getUserProperties().put("droppedMessageCount", new AtomicLong());
 
             if (Application.WRITE_STRATEGY == WriteStrategy.ASYNC_QUEUE) {
                 session.getUserProperties().put("isWriting", new AtomicBoolean(false));

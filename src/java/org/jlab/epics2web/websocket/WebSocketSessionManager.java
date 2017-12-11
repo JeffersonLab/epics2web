@@ -8,12 +8,12 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.json.Json;
@@ -290,11 +290,13 @@ public class WebSocketSessionManager {
         
         if (session.isOpen()) {
             if (Application.WRITE_STRATEGY == WriteStrategy.ASYNC_QUEUE) {
-                ConcurrentLinkedQueue<String> writequeue = (ConcurrentLinkedQueue<String>) session.getUserProperties().get("writequeue");
-
+                ConcurrentLinkedQueue<String> writequeue = (ConcurrentLinkedQueue<String>) session.getUserProperties().get("writequeue");               
+                
                 //System.out.println("Queue Size: " + writequeue.size());
                 if (writequeue.size() > Application.WRITE_QUEUE_SIZE_LIMIT) {
-                    LOGGER.log(Level.INFO, "Dropping message: {0}", msg);
+                    //LOGGER.log(Level.INFO, "Dropping message: {0}", msg);
+                    AtomicLong dropCount = (AtomicLong)session.getUserProperties().get("droppedMessageCount");
+                    dropCount.getAndIncrement();
                 } else {
                     writequeue.offer(msg);
                 }
@@ -302,11 +304,14 @@ public class WebSocketSessionManager {
                 ArrayBlockingQueue<String> writequeue = (ArrayBlockingQueue<String>) session.getUserProperties().get("writequeue");
                 
                 // TODO: should be using a fancy custom BlockingQueue that prioritizes info messages and also replaces queued update messages with most recent update (don't notify of stale updates - just move on to fresh updates)
+                // TODO: it seems message queue filling up is likely a sign connection to client is bad and maybe we should just close socket?
                 
-                boolean success = writequeue.offer(msg);
+                boolean success = writequeue.offer(msg);              
                 
                 if(!success) {
-                    LOGGER.log(Level.INFO, "Dropping message: {0}", msg);                    
+                    //LOGGER.log(Level.INFO, "Dropping message: {0}", msg);    
+                    AtomicLong dropCount = (AtomicLong)session.getUserProperties().get("droppedMessageCount");
+                    dropCount.getAndIncrement();                       
                 }                
             } else {
                 try {
