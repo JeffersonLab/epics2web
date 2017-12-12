@@ -3,6 +3,9 @@
 var jlab = jlab || {};
 jlab.epics2web = jlab.epics2web || {};
 
+/*Make it easy to prefix; otherwise can be safely ignored*/
+jlab.epics2web.contextPrefix = jlab.epics2web.contextPrefix || '';
+
 /* BEGIN IE CustomEvent POLYFILL */
 (function () {
     if (typeof window.CustomEvent === "function") {
@@ -29,7 +32,7 @@ jlab.epics2web.ClientConnection = function (options) {
     }
 
     var defaultOptions = {
-        url: protocol + "//" + window.location.host + "/epics2web/monitor",
+        url: protocol + "//" + window.location.host + jlab.epics2web.contextPrefix + "/epics2web/monitor",
         autoOpen: true, /* Will automatically connect to socket immediately instead of waiting for open function to be called */
         autoReconnect: true, /* If socket is closed, will automatically reconnect after reconnectWaitMillis */
         autoLivenessPingAndTimeout: true, /* Will ping the server every pingIntervalMillis and if no response in livenessTimeoutMillis then will close the socket as invalid */
