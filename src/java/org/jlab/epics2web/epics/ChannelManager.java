@@ -104,11 +104,8 @@ public class ChannelManager {
                 short value = ((gov.aps.jca.dbr.SHORT) dbr).getShortValue()[0];
                 builder.add("value", value);
             } else if (dbr.isENUM()) {
-                System.out.println("is enum!");
                 short value = ((gov.aps.jca.dbr.ENUM) dbr).getEnumValue()[0];
-                System.out.println(((gov.aps.jca.dbr.ENUM) dbr).toString());
                 builder.add("value", value);
-                System.out.println(dbr.getType());
             } else if (dbr.isBYTE()) {
                 byte value = ((gov.aps.jca.dbr.BYTE) dbr).getByteValue()[0];
                 builder.add("value", value);
