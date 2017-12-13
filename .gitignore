@@ -4,3 +4,4 @@
 /dist/
 /nbbuild.xml
 /nb-build.xml
+/web/META-INF/context.xml
