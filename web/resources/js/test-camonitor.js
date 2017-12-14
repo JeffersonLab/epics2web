@@ -48,7 +48,7 @@ jlab.epics2web.test.addPv = function (pv) {
         return;
     }
 
-    var $tr = $('<tr><td class="pv-name">' + pv + '</td><td class="pv-status"><img style="width: 16px; height: 16px; margin-right: 4px;" alt="Connecting..." src="/epics2web/resources/img/indicator16x16.gif"></img>Connecting</td><td class="pv-type"></td><td class="pv-value"></td><td class="pv-updated"></td><td><button type="button" class="close-button">X</button></td></tr>');
+    var $tr = $('<tr><td class="pv-name">' + pv + '</td><td class="pv-status"><img style="width: 16px; height: 16px; margin-right: 4px;" alt="Connecting..." src="' + jlab.contextPrefix + '/epics2web/resources/img/indicator16x16.gif"></img>Connecting</td><td class="pv-type"></td><td class="pv-value"></td><td class="pv-updated"></td><td><button type="button" class="close-button">X</button></td></tr>');
 
     $tbody.append($tr);
 
