@@ -53,8 +53,7 @@
         </table>
         <script type="text/javascript">
             var jlab = jlab || {};
-            jlab.epics2web = jlab.epics2web || {};
-            jlab.epics2web.contextPrefix = '${app:contextPrefix()}';
+            jlab.contextPrefix = '${app:contextPrefix()}';
         </script>
         <script type="text/javascript" src="${pageContext.request.contextPath}/resources/js/jquery-1.10.2.min.js"></script>
         <c:choose>
