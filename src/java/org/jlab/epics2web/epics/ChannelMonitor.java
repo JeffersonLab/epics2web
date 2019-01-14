@@ -121,7 +121,9 @@ class ChannelMonitor implements Closeable {
         //LOGGER.log(Level.FINEST, "close");
         if (channel != null) {
             try {
-                channel.destroy();
+                // channel.destroy(); // method is unsafe (can deadlock)
+                // so use context method instead                
+                context.destroyChannel(channel, true);
             } catch (CAException e) {
                 throw new IOException("Unable to close channel", e);
             }
