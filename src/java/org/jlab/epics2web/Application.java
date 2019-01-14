@@ -76,16 +76,19 @@ public class Application implements ServletContextListener {
                             if (msg != null) {
                                 try {
                                     session.getBasicRemote().sendText(msg);
-                                } catch (IllegalStateException e) { // If session closes between time session.isOpen() and sentText(msg) then you'll get this exception.  Not an issue.
-                                    LOGGER.log(Level.INFO, "Unable to send message: {0}", e.getMessage());
-                                } catch (IOException e) {
-                                    LOGGER.log(Level.WARNING, "Unable to send message", e);
+                                } catch (IllegalStateException | IOException e) { // If session closes between time session.isOpen() and sentText(msg) then you'll get this exception.  Not an issue.
+                                    LOGGER.log(Level.FINEST, "Unable to send message: ", e);
+                                    
+                                    if(!session.isOpen()) {
+                                        sessionManager.removeClient(session);
+                                        LOGGER.log(Level.FINEST, "Session closed after write exception; shutting down write thread");
+                                        break;
+                                    }
                                 }
                             }
                         } else {
                             sessionManager.removeClient(session);
-
-                            LOGGER.log(Level.INFO, "Session closed; shutting down write thread");
+                            LOGGER.log(Level.FINEST, "Session closed; shutting down write thread");
                             break;
                         }
                     }
@@ -258,6 +261,7 @@ public class Application implements ServletContextListener {
                                     RESTARTING = true;
                                     channelManager.reset(context);
                                 } finally {
+                                    LOGGER.log(Level.INFO, "Resuming after reset procedure");
                                     RESTARTING = false;
                                 }
                             }
