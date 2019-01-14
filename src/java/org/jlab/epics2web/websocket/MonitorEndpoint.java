@@ -147,7 +147,7 @@ public class MonitorEndpoint {
     @OnError
     public void onError(Session session, Throwable t) {
         //t.printStackTrace();
-        LOGGER.log(Level.WARNING, "WebSocket Error: {0}", t.getMessage());
+        LOGGER.log(Level.FINE, "WebSocket Error: {0}", t.getMessage());
         if (session != null) {
 
             if (Application.WRITE_STRATEGY == WriteStrategy.BLOCKING_QUEUE) {
