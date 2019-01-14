@@ -44,7 +44,7 @@ class ChannelMonitor implements Closeable {
 
     /*We use a thread-safe set for listeners so that adding/removing/iterating can be done safely*/
     private final Set<PvListener> listeners = new CopyOnWriteArraySet<>();
-    private CAJChannel c;
+    private CAJChannel channel;
     private final CAJContext context;
     private final ScheduledExecutorService timeoutExecutor;
     private final String pv;
@@ -67,7 +67,7 @@ class ChannelMonitor implements Closeable {
         this.timeoutExecutor = timeoutExecutor;
 
         //LOGGER.log(Level.FINEST, "Creating channel: {0}", pv);
-        c = (CAJChannel) context.createChannel(pv, new TimedChannelConnectionListener());
+        channel = (CAJChannel) context.createChannel(pv, new TimedChannelConnectionListener());
 
         context.flushIO();
     }
@@ -119,9 +119,9 @@ class ChannelMonitor implements Closeable {
     @Override
     public void close() throws IOException {
         //LOGGER.log(Level.FINEST, "close");
-        if (c != null) {
+        if (channel != null) {
             try {
-                c.destroy();
+                channel.destroy();
             } catch (CAException e) {
                 throw new IOException("Unable to close channel", e);
             }
@@ -148,8 +148,8 @@ class ChannelMonitor implements Closeable {
         boolean connected = (state == MonitorState.CONNECTED);
 
         if (connected) {
-            type = c.getFieldType();
-            count = c.getElementCount();
+            type = channel.getFieldType();
+            count = channel.getElementCount();
         }
 
         // ABSOLUTELY DO NOT CALL NOTIFY WHILE HOLDING A LOCK
@@ -213,7 +213,7 @@ class ChannelMonitor implements Closeable {
                 future.cancel(false);
 
                 if (ce.isConnected()) {
-                    DBRType type = c.getFieldType();
+                    DBRType type = channel.getFieldType();
 
                     if (type == DBRType.ENUM) {
                         handleEnumConnection();
@@ -257,7 +257,7 @@ class ChannelMonitor implements Closeable {
          * @throws CAException If unable to initialize
          */
         private void handleEnumConnection() throws IllegalStateException, CAException {
-            c.get(DBRType.LABELS_ENUM, 1, new TimedChannelEnumGetListener());
+            channel.get(DBRType.LABELS_ENUM, 1, new TimedChannelEnumGetListener());
 
             context.flushIO();
         }
@@ -269,7 +269,7 @@ class ChannelMonitor implements Closeable {
          * @throws CAException If unable to register
          */
         private void registerMonitor() throws IllegalStateException, CAException {
-            c.addMonitor(c.getFieldType(), 1, Monitor.VALUE, new ChannelMonitorListener());
+            channel.addMonitor(channel.getFieldType(), 1, Monitor.VALUE, new ChannelMonitorListener());
         }
 
         /**
