@@ -4,8 +4,6 @@ import org.jlab.epics2web.websocket.WebSocketSessionManager;
 import org.jlab.epics2web.epics.ChannelManager;
 import org.jlab.epics2web.epics.ContextFactory;
 import com.cosylab.epics.caj.CAJContext;
-import com.cosylab.epics.caj.impl.CATransport;
-import com.cosylab.epics.caj.impl.Transport;
 import gov.aps.jca.CAException;
 import gov.aps.jca.CAStatus;
 import gov.aps.jca.event.ContextExceptionEvent;
@@ -14,10 +12,6 @@ import gov.aps.jca.event.ContextMessageEvent;
 import gov.aps.jca.event.ContextMessageListener;
 import gov.aps.jca.event.ContextVirtualCircuitExceptionEvent;
 import java.io.IOException;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
@@ -78,8 +72,8 @@ public class Application implements ServletContextListener {
                                     session.getBasicRemote().sendText(msg);
                                 } catch (IllegalStateException | IOException e) { // If session closes between time session.isOpen() and sentText(msg) then you'll get this exception.  Not an issue.
                                     LOGGER.log(Level.FINEST, "Unable to send message: ", e);
-                                    
-                                    if(!session.isOpen()) {
+
+                                    if (!session.isOpen()) {
                                         sessionManager.removeClient(session);
                                         LOGGER.log(Level.FINEST, "Session closed after write exception; shutting down write thread");
                                         break;
@@ -238,47 +232,49 @@ public class Application implements ServletContextListener {
                 if (statusCode == CAStatus.UNRESPTMO.getStatusCode()) {
                     LOGGER.log(Level.SEVERE, "ATTEMPTING A CONTEXT RESET");
 
-                    /*InetAddress ip = ev.getVirtualCircuit(); 
-                    int port = 5064;
-                    InetSocketAddress ipAndPort = new InetSocketAddress(ip, port);
-                    Transport[] transportArray = context.getTransportRegistry().get(ipAndPort);
-                    
-                    if(transportArray != null && transportArray.length == 1 && transportArray[0] instanceof CATransport) {
-                        CATransport trans = (CATransport)transportArray[0];
-                        trans.changedTransport();
-                        trans.close(true);
-                    }*/
-                    try {
-                        context = factory.newContext();
-                        registerContextListeners(context);
+                    synchronized (Application.class) {
+                        if (Application.RESTARTING) {
+                            LOGGER.log(Level.SEVERE, "ALREADY RESETTING, SKIPPING REDUNDANT RESET");
+                        } else {
+                            RESTARTING = true;
 
-                        // We run the reset in a separate thread as the contextVirtualCircuitException is generally called from Timer thread, which is hold locks in a bad way
-                        resetExecutor.execute(new Runnable() {
-                            @Override
-                            public void run() {
-                                LOGGER.log(Level.INFO, "Starting reset procedure");
-                                try {
-                                    RESTARTING = true;
-                                    channelManager.reset(context);
-                                } finally {
-                                    LOGGER.log(Level.INFO, "Resuming after reset procedure");
-                                    RESTARTING = false;
-                                }
+                            try {
+                                context = factory.newContext();
+                                registerContextListeners(context);
+
+                                // We run the reset in a separate thread as the contextVirtualCircuitException is generally called from Timer thread, which is holding locks in a bad way
+                                resetExecutor.execute(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        LOGGER.log(Level.INFO, "Starting reset procedure");
+                                        try {
+                                            channelManager.reset(context);
+                                        } finally {
+                                            LOGGER.log(Level.INFO, "Resuming after reset procedure");
+                                            synchronized (Application.class) {
+                                                RESTARTING = false;
+                                            }
+                                        }
+                                    }
+                                });
+
+                            } catch (CAException e) {
+                                LOGGER.log(Level.SEVERE, "Unable to reset context", e);
                             }
-                        });
-
-                    } catch (CAException e) {
-                        LOGGER.log(Level.SEVERE, "Unable to reset context", e);
+                        }
                     }
                 }
             }
         });
 
-        c.addContextMessageListener(new ContextMessageListener() {
+        c.addContextMessageListener(
+                new ContextMessageListener() {
             @Override
-            public void contextMessage(ContextMessageEvent ev) {
+            public void contextMessage(ContextMessageEvent ev
+            ) {
                 LOGGER.log(Level.WARNING, "EPICS CA Context Messge Event: {0}", ev.getMessage());
             }
-        });
+        }
+        );
     }
 }
