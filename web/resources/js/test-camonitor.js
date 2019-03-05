@@ -109,6 +109,7 @@ $(function () {
     };
 
     jlab.epics2web.test.con.onupdate = function (e) {
+        /*console.log(e.detail);*/
         var $tr = jlab.epics2web.test.pvToWidgetMap[e.detail.pv];
         if (typeof $tr !== 'undefined') {
 
@@ -140,6 +141,7 @@ $(function () {
     };
 
     jlab.epics2web.test.con.oninfo = function (e) {
+        /*console.log(e.detail);*/
         var $tr = jlab.epics2web.test.pvToWidgetMap[e.detail.pv];
         if (typeof $tr !== 'undefined') {
             $tr.find(".pv-status").text(e.detail.connected ? 'Monitoring' : 'Disconnected');

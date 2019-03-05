@@ -9,12 +9,14 @@ import gov.aps.jca.dbr.DBRType;
 import gov.aps.jca.dbr.DBR_LABELS_Enum;
 import gov.aps.jca.event.ConnectionEvent;
 import gov.aps.jca.event.ConnectionListener;
+import gov.aps.jca.event.ContextVirtualCircuitExceptionEvent;
 import gov.aps.jca.event.GetEvent;
 import gov.aps.jca.event.GetListener;
 import gov.aps.jca.event.MonitorEvent;
 import gov.aps.jca.event.MonitorListener;
 import java.io.Closeable;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CopyOnWriteArraySet;
@@ -39,12 +41,13 @@ class ChannelMonitor implements Closeable {
     public static final long TIMEOUT_MILLIS = 3000;
 
     private volatile DBR lastDbr = null;
-    private volatile MonitorState state = MonitorState.CONNECTING; // We don't use CAJChannel.getConnectionState() because we want to still be "connecting" during enum label fetch
-    private AtomicReference<String[]> enumLabels = new AtomicReference<>(null); // volatile arrays are unsafe due to individual indicies so use AtomicReference instead 
+    private final AtomicReference<MonitorState> state = new AtomicReference<>(MonitorState.CONNECTING); // We don't use CAJChannel.getConnectionState() because we want to still be "connecting" during enum label fetch; also, we might be "disconnected" when a virtualcircuitexception occurs
+    private final AtomicReference<String[]> enumLabels = new AtomicReference<>(null); // volatile arrays are unsafe due to individual indicies so use AtomicReference instead 
+    private Monitor monitor = null; // Keep track of singleton monitor to avoid creating multiple on reconnect after disconnect
 
     /*We use a thread-safe set for listeners so that adding/removing/iterating can be done safely*/
     private final Set<PvListener> listeners = new CopyOnWriteArraySet<>();
-    private CAJChannel channel;
+    private final CAJChannel channel;
     private final CAJContext context;
     private final ScheduledExecutorService timeoutExecutor;
     private final String pv;
@@ -80,17 +83,24 @@ class ChannelMonitor implements Closeable {
     public void addListener(PvListener listener) {
         listeners.add(listener);
 
-        boolean connecting = (state == MonitorState.CONNECTING);
+        switch (state.get()) {
+            case CONNECTED:
+                notifyPvInfo(listener, true);
 
-        if (!connecting) {
-            notifyPvInfo(listener);
+                DBR dbr = lastDbr;
 
-            DBR dbr = lastDbr;
-
-            if (dbr != null) {
-                notifyPvUpdate(listener, dbr);
-            }
+                if (dbr != null) {
+                    notifyPvUpdate(listener, dbr);
+                }
+                break;
+            case DISCONNECTED:
+                notifyPvInfo(listener, false);
+                break;
+            default: // CONNECTING
+                // Wait for timer or connected callback
         }
+        
+        // NOTE: if connectionChanged occurs simultaneously then client may receive messages out-of-order such as info showing disconnected then connected, when should be connected, then disconnected.
     }
 
     /**
@@ -133,9 +143,9 @@ class ChannelMonitor implements Closeable {
     /**
      * Notify all listeners of the channel info metadata.
      */
-    private void notifyPvInfoAll() {
+    private void notifyPvInfoAll(boolean connected) {
         for (PvListener l : listeners) {
-            notifyPvInfo(l);
+            notifyPvInfo(l, connected);
         }
     }
 
@@ -144,10 +154,9 @@ class ChannelMonitor implements Closeable {
      *
      * @param listener The PvListener
      */
-    private void notifyPvInfo(PvListener listener) {
+    private void notifyPvInfo(PvListener listener, boolean connected) {
         DBRType type = null;
         Integer count = null;
-        boolean connected = (state == MonitorState.CONNECTED);
 
         if (connected) {
             type = channel.getFieldType();
@@ -177,6 +186,15 @@ class ChannelMonitor implements Closeable {
         listener.notifyPvUpdate(pv, dbr);
     }
 
+    public InetAddress getVirtualCircuit() {
+        return channel.getTransport().getRemoteAddress().getAddress();
+    }
+
+    public void virtualCircuitExceptionNotify(ContextVirtualCircuitExceptionEvent ev) {
+        state.set(MonitorState.DISCONNECTED);
+        notifyPvInfoAll(false);
+    }
+
     /**
      * Private inner helper class to respond to connection status changes.
      */
@@ -191,12 +209,12 @@ class ChannelMonitor implements Closeable {
             future = timeoutExecutor.schedule(new Callable<Void>() {
                 @Override
                 public Void call() throws Exception {
-                    boolean connected = (state == MonitorState.CONNECTED);
+                    boolean connected = (state.get() == MonitorState.CONNECTED);
 
                     if (!connected) {
                         //LOGGER.log(Level.WARNING, "Unable to connect to channel (timeout)");
 
-                        notifyPvInfoAll();
+                        notifyPvInfoAll(false);
                     }
 
                     return null;
@@ -211,6 +229,8 @@ class ChannelMonitor implements Closeable {
          */
         @Override
         public void connectionChanged(ConnectionEvent ce) {
+            //LOGGER.log(Level.FINEST, "Connection Changed - Connected: {0}", ce.isConnected());
+
             try {
                 future.cancel(false);
 
@@ -220,35 +240,40 @@ class ChannelMonitor implements Closeable {
                     if (type == DBRType.ENUM) {
                         handleEnumConnection();
                     } else {
-                        handleRegularConnection();
+                        handleRegularConnectionOrReconnect();
                     }
                 } else {
                     //CAJChannel c = (CAJChannel) ce.getSource();
                     //LOGGER.log(Level.WARNING, "Unable to connect to channel: {0}", c.getName());                    
 
-                    state = MonitorState.DISCONNECTED;
-                    notifyPvInfoAll();
+                    state.set(MonitorState.DISCONNECTED);
+                    notifyPvInfoAll(false);
                 }
             } catch (CAException e) {
                 LOGGER.log(Level.SEVERE, "Unable to monitor channel", e);
-                state = MonitorState.DISCONNECTED;
-                notifyPvInfoAll();
+                state.set(MonitorState.DISCONNECTED);
+                notifyPvInfoAll(false);
             }
         }
 
         /**
-         * Setup a regular (non-enum) connection.
+         * Setup a connection or reconnect.
          *
          * @throws IllegalStateException If unable to initialize
          * @throws CAException If unable to initialize
          */
-        private void handleRegularConnection() throws
+        private void handleRegularConnectionOrReconnect() throws
                 IllegalStateException, CAException {
-            registerMonitor();
-            context.flushIO();
+            // Only create monitor on first connect, afterwards reconnect uses same old monitor
+            synchronized (this) {
+                if (monitor == null) {
+                    monitor = channel.addMonitor(channel.getFieldType(), 1, Monitor.VALUE, new ChannelMonitorListener());
+                    context.flushIO();
+                }
+            }
 
-            state = MonitorState.CONNECTED;
-            notifyPvInfoAll();
+            state.set(MonitorState.CONNECTED);
+            notifyPvInfoAll(true);
         }
 
         /**
@@ -265,16 +290,6 @@ class ChannelMonitor implements Closeable {
         }
 
         /**
-         * Register the monitor in the low-level EPICS lib plumbing.
-         *
-         * @throws IllegalStateException If unable to register
-         * @throws CAException If unable to register
-         */
-        private void registerMonitor() throws IllegalStateException, CAException {
-            channel.addMonitor(channel.getFieldType(), 1, Monitor.VALUE, new ChannelMonitorListener());
-        }
-
-        /**
          * A private inner inner class to respond to an enum label caget.
          */
         private class TimedChannelEnumGetListener implements GetListener {
@@ -285,9 +300,9 @@ class ChannelMonitor implements Closeable {
                 future = timeoutExecutor.schedule(new Callable<Void>() {
                     @Override
                     public Void call() throws Exception {
-                        state = MonitorState.DISCONNECTED;
+                        state.set(MonitorState.DISCONNECTED);
 
-                        notifyPvInfoAll();
+                        notifyPvInfoAll(false);
 
                         return null;
                     }
@@ -300,14 +315,8 @@ class ChannelMonitor implements Closeable {
                 DBR_LABELS_Enum labelRecord = (DBR_LABELS_Enum) ge.getDBR();
                 enumLabels.set(labelRecord.getLabels());
 
-                state = MonitorState.CONNECTED;
-
                 try {
-                    registerMonitor();
-
-                    context.flushIO();
-
-                    notifyPvInfoAll();
+                    handleRegularConnectionOrReconnect();
                 } catch (Exception e) {
                     LOGGER.log(Level.WARNING, "Unable to register monitor after enum label fetch", e);
                 }
@@ -328,6 +337,15 @@ class ChannelMonitor implements Closeable {
         @Override
         public void monitorChanged(MonitorEvent me) {
             //LOGGER.log(Level.FINEST, "Monitor Update");
+
+            /*
+            // Not needed because ConnectionListener does this for us
+            boolean updated = state.compareAndSet(MonitorState.DISCONNECTED, ChannelMonitor.MonitorState.CONNECTED);
+            
+            if(updated) {
+                notifyPvInfoAll(true);
+            }           
+             */
             DBR dbr = me.getDBR();
 
             lastDbr = dbr;
