@@ -284,10 +284,6 @@ public class WebSocketSessionManager {
     @SuppressWarnings("unchecked")
     public void send(Session session, String pv, String msg) {
         
-        /*if(Application.RESTARTING) {
-            return;
-        }*/
-        
         if (session.isOpen()) {
             if (Application.WRITE_STRATEGY == WriteStrategy.ASYNC_QUEUE) {
                 ConcurrentLinkedQueue<String> writequeue = (ConcurrentLinkedQueue<String>) session.getUserProperties().get("writequeue");               
