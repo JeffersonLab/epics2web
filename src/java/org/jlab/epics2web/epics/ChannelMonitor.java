@@ -39,7 +39,7 @@ class ChannelMonitor implements Closeable {
     public static final long TIMEOUT_MILLIS = 3000;
 
     private volatile DBR lastDbr = null;
-    private final AtomicReference<MonitorState> state = new AtomicReference<>(MonitorState.CONNECTING); // We don't use CAJChannel.getConnectionState() because we want to still be "connecting" during enum label fetch; also, we might be "disconnected" when a virtualcircuitexception occurs
+    private final AtomicReference<MonitorState> state = new AtomicReference<>(MonitorState.CONNECTING); // We don't use CAJChannel.getConnectionState() because we want to still be "connecting" during enum label fetch
     private final AtomicReference<String[]> enumLabels = new AtomicReference<>(null); // volatile arrays are unsafe due to individual indicies so use AtomicReference instead 
     private Monitor monitor = null; // Keep track of singleton monitor to avoid creating multiple on reconnect after disconnect
 
@@ -58,6 +58,16 @@ class ChannelMonitor implements Closeable {
      * Create a new ChannelMonitor for the given EPICS PV using the supplied CA
      * Context.
      *
+     * NOTE: Updates including metadata info, may be pushed to clients 
+     * out-of-order, though this should be rare.  Serializing CAJ callbacks up 
+     * until the websocket write queue is costly and unnecessary.  If updates 
+     * come in quickly then an out-of-order update will soon be overwritten 
+     * anyways.  Worst case is probably metadata info during IOC disconnect and 
+     * reconnect, especially for a client connecting to epics2web
+     * during a reconnect.  Clients are encouraged to interpret a value 
+     * update as meaning state connected in the event it arrives after a 
+     * disconnected metadata update.
+     * 
      * @param pv The PV name
      * @param context The EPICS CA Context
      * @param timeoutExecutor The thread pool to use for connection timeout
@@ -97,8 +107,6 @@ class ChannelMonitor implements Closeable {
             default: // CONNECTING
                 // Wait for timer or connected callback
         }
-        
-        // NOTE: if connectionChanged occurs simultaneously then client may receive messages out-of-order such as info showing disconnected then connected, when should be connected, then disconnected.
     }
 
     /**
@@ -221,7 +229,7 @@ class ChannelMonitor implements Closeable {
             //LOGGER.log(Level.FINEST, "Connection Changed - Connected: {0}", ce.isConnected());
 
             try {
-                future.cancel(false);
+                future.cancel(false); // only needed for initial connection, on reconnects this will result in "false" return value, which is ignored
 
                 if (ce.isConnected()) {
                     DBRType type = channel.getFieldType();
