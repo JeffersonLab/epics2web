@@ -6,7 +6,6 @@ import gov.aps.jca.CAException;
 import gov.aps.jca.TimeoutException;
 import gov.aps.jca.dbr.DBR;
 import gov.aps.jca.dbr.DBRType;
-import gov.aps.jca.event.ContextVirtualCircuitExceptionEvent;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -215,7 +214,7 @@ public class ChannelManager {
             for (String pv : addPvSet) {
                 //LOGGER.log(Level.FINEST, "addListener pv: {0}; pv: {1}", new Object[]{session, pv});
 
-                ChannelMonitor monitor = null;
+                ChannelMonitor monitor;
                 synchronized (monitorMap) {
                     monitor = monitorMap.get(pv);
 
@@ -376,13 +375,5 @@ public class ChannelManager {
         Map<PvListener, Set<String>> map;
         map = Collections.unmodifiableMap(clientMap);
         return map;
-    }
-    
-    public void virtualCircuitExceptionNotify(ContextVirtualCircuitExceptionEvent ev) {
-        for(ChannelMonitor monitor: monitorMap.values()) {
-            if(ev.getVirtualCircuit().equals(monitor.getVirtualCircuit())) {
-                monitor.virtualCircuitExceptionNotify(ev);
-            }
-        }
     }
 }

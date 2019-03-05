@@ -186,15 +186,6 @@ class ChannelMonitor implements Closeable {
         listener.notifyPvUpdate(pv, dbr);
     }
 
-    public InetAddress getVirtualCircuit() {
-        return channel.getTransport().getRemoteAddress().getAddress();
-    }
-
-    public void virtualCircuitExceptionNotify(ContextVirtualCircuitExceptionEvent ev) {
-        state.set(MonitorState.DISCONNECTED);
-        notifyPvInfoAll(false);
-    }
-
     /**
      * Private inner helper class to respond to connection status changes.
      */
@@ -336,16 +327,6 @@ class ChannelMonitor implements Closeable {
          */
         @Override
         public void monitorChanged(MonitorEvent me) {
-            //LOGGER.log(Level.FINEST, "Monitor Update");
-
-            /*
-            // Not needed because ConnectionListener does this for us
-            boolean updated = state.compareAndSet(MonitorState.DISCONNECTED, ChannelMonitor.MonitorState.CONNECTED);
-            
-            if(updated) {
-                notifyPvInfoAll(true);
-            }           
-             */
             DBR dbr = me.getDBR();
 
             lastDbr = dbr;

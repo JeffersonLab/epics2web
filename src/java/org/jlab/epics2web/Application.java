@@ -5,7 +5,6 @@ import org.jlab.epics2web.epics.ChannelManager;
 import org.jlab.epics2web.epics.ContextFactory;
 import com.cosylab.epics.caj.CAJContext;
 import gov.aps.jca.CAException;
-import gov.aps.jca.CAStatus;
 import gov.aps.jca.event.ContextExceptionEvent;
 import gov.aps.jca.event.ContextExceptionListener;
 import gov.aps.jca.event.ContextMessageEvent;
@@ -43,8 +42,6 @@ public class Application implements ServletContextListener {
 
     public static final WriteStrategy WRITE_STRATEGY = WriteStrategy.BLOCKING_QUEUE;
     public static final int WRITE_QUEUE_SIZE_LIMIT = 2000;
-    public static final boolean RESET_CONTEXT_ON_UNRESPONSIVE_VIRTUAL_CIRCUIT = false;
-    public static final boolean NOTIFY_CLIENTS_OF_VIRTUAL_CIRCUIT_EXCEPTIONS = false;
 
     public static ChannelManager channelManager = null;
     public static WebSocketSessionManager sessionManager = new WebSocketSessionManager();
@@ -228,22 +225,6 @@ public class Application implements ServletContextListener {
             @Override
             public void contextVirtualCircuitException(ContextVirtualCircuitExceptionEvent ev) {
                 LOGGER.log(Level.SEVERE, "EPICS CA Context Virtual Circuit Exception: Status: {0}, Address: {1}, Fatal: {2}", new Object[]{ev.getStatus(), ev.getVirtualCircuit(), ev.getStatus().isFatal()});
-
-                // If configured, notify clients that we have IOC connectivitiy issues
-                //
-                // This is not needed because channel connectionChanged callback covers this now
-                if (NOTIFY_CLIENTS_OF_VIRTUAL_CIRCUIT_EXCEPTIONS) {
-                    if(channelManager != null) {
-                        channelManager.virtualCircuitExceptionNotify(ev);
-                    }
-                }
-
-                // If configured and Exception = Unresponsive then reset entire context
-                //
-                // This is probably not needed as CAJ should automatically reconnect once circuit becomes available again
-                if (RESET_CONTEXT_ON_UNRESPONSIVE_VIRTUAL_CIRCUIT && ev.getStatus().getStatusCode() == CAStatus.UNRESPTMO.getStatusCode()) {
-                    doContextReset();
-                }
             }
         });
 
@@ -253,63 +234,5 @@ public class Application implements ServletContextListener {
                 LOGGER.log(Level.WARNING, "EPICS CA Context Messge Event: {0}", ev.getMessage());
             }
         });
-    }
-
-    /*private void doNotifyClientsOfVirtualCircuitException(ContextVirtualCircuitExceptionEvent ev) {
-        Transport[] transports = context.getTransportRegistry().toArray();
-
-        for (Transport t : transports) {
-            if (ev.getVirtualCircuit().equals(t.getRemoteAddress().getAddress())) {
-                CATransport cat = (CATransport) t;
-
-                Channel[] channels = context.getChannels();
-
-                for (Channel c : channels) {
-
-                    CAJChannel cac = (CAJChannel) c;
-
-                    if (cat.equals(cac.getTransport())) {
-                        //TODO: I know the channel, so now we lookup the WebSocket!
-                    }
-                }
-            }
-        }
-    }*/
-
-    private void doContextReset() {
-        LOGGER.log(Level.SEVERE, "ATTEMPTING A CONTEXT RESET");
-
-        // Synchronize on Application class to avoid simultaneous resets
-        synchronized (Application.class) {
-            if (Application.RESTARTING) {
-                LOGGER.log(Level.SEVERE, "ALREADY RESETTING, SKIPPING REDUNDANT RESET");
-            } else {
-                RESTARTING = true;
-
-                try {
-                    context = factory.newContext();
-                    registerContextListeners(context);
-
-                    // We run the reset in a separate thread as the contextVirtualCircuitException is generally called from Timer thread, which is holding locks in a bad way
-                    resetExecutor.execute(new Runnable() {
-                        @Override
-                        public void run() {
-                            LOGGER.log(Level.INFO, "Starting reset procedure");
-                            try {
-                                channelManager.reset(context);
-                            } finally {
-                                LOGGER.log(Level.INFO, "Resuming after reset procedure");
-                                synchronized (Application.class) {
-                                    RESTARTING = false;
-                                }
-                            }
-                        }
-                    });
-
-                } catch (CAException e) {
-                    LOGGER.log(Level.SEVERE, "Unable to reset context", e);
-                }
-            }
-        }
     }
 }
