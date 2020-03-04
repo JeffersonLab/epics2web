@@ -5,7 +5,7 @@
     <property name="project.release.production" value="true"/>
     <property environment="env"/>   
     <fail unless="env.CATALINA_HOME" message="Environment variable CATALINA_HOME must be set in order to include Tomcat libraries in classpath"/>
-    <property name="src.dir" value="src/java"/>
+    <property name="src.dir" value="src/main/java"/>
     <property name="build.dir" value="build"/>
     <property name="classes.dir" value="${build.dir}/classes"/>
     <property name="dist.dir" value="dist"/>
@@ -27,9 +27,9 @@
     <target name="war" depends="compile">
         <mkdir dir="${dist.dir}"/>     
         <copy todir="${build.dir}/web">
-            <fileset dir="web"/>
+            <fileset dir="src/main/webapp"/>
         </copy>  
-        <copy file="web/WEB-INF/web.xml" toFile="${build.dir}/web/WEB-INF/web.xml" overwrite="true" force="true">
+        <copy file="src/main/webapp/WEB-INF/web.xml" toFile="${build.dir}/web/WEB-INF/web.xml" overwrite="true" force="true">
             <filterset>
                 <filter token="VERSION" value="${project.release.version}"/>
                 <filter token="RELEASE_DATE" value="${project.release.date}"/>

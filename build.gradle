@@ -1,0 +1,42 @@
+plugins {
+    id 'war'  
+}
+
+description = "EPICS to web gateway"
+version = '1.9.0'
+
+ext {
+    releaseDate = 'March 04 2020'
+    productionRelease = 'true'
+}
+
+repositories {
+    jcenter()
+}
+
+compileJava   {
+    sourceCompatibility = '1.8'
+    targetCompatibility = '1.8'
+}
+
+dependencies {
+    compile 'org.epics:jca:2.3.6'
+    compile 'org.epics:caj:1.1.15'
+    providedCompile 'javax:javaee-api:7.0',
+        'javax.servlet:jstl:1.2'
+}
+
+war {
+    archiveName 'epics2web.war'
+    filesMatching('WEB-INF/web.xml') {
+        filter {
+            String line -> line.replaceAll("@VERSION@", version)
+        }
+        filter {
+            String line -> line.replaceAll("@RELEASE_DATE@", releaseDate)
+        }
+        filter {
+            String line -> line.replaceAll("@PRODUCTION_RELEASE@", productionRelease)
+        }
+    }
+}

@@ -4,5 +4,6 @@
 /dist/
 /nbbuild.xml
 /nb-build.xml
-/web/META-INF/context.xml
+/src/main/webapp/META-INF/context.xml
 /.idea/
+/.gradle/
