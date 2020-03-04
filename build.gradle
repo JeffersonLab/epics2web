@@ -1,4 +1,5 @@
 plugins {
+    id 'java'
     id 'war'  
 }
 
@@ -20,8 +21,8 @@ compileJava   {
 }
 
 dependencies {
-    compile 'org.epics:jca:2.3.6'
-    compile 'org.epics:caj:1.1.15'
+    implementation 'org.epics:jca:2.3.6'
+    implementation 'org.epics:caj:1.1.15'
     providedCompile 'javax:javaee-api:7.0',
         'javax.servlet:jstl:1.2'
 }
