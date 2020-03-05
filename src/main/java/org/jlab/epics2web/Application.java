@@ -49,6 +49,7 @@ public class Application implements ServletContextListener {
     private static final int TIMEOUT_EXECUTOR_POOL_SIZE = 1;
     private static final Logger LOGGER = Logger.getLogger(Application.class.getName());
     private static ScheduledExecutorService timeoutExecutor = null;
+    private static ExecutorService callbackExecutor = null;
     private static ExecutorService writerExecutor = null;
     private static ExecutorService resetExecutor = null;
     private static ContextFactory factory = null;
@@ -104,9 +105,10 @@ public class Application implements ServletContextListener {
             LOGGER.log(Level.SEVERE, "Unable to obtain EPICS CA context", e);
         }
         timeoutExecutor = Executors.newScheduledThreadPool(TIMEOUT_EXECUTOR_POOL_SIZE, new CustomPrefixThreadFactory("CA-Timeout-"));
+        callbackExecutor = Executors.newCachedThreadPool(new CustomPrefixThreadFactory("Callback-"));
         writerExecutor = Executors.newCachedThreadPool(new CustomPrefixThreadFactory("Web-Socket-Writer-"));
         resetExecutor = Executors.newSingleThreadExecutor(new CustomPrefixThreadFactory("Resetter-"));
-        channelManager = new ChannelManager(context, timeoutExecutor);
+        channelManager = new ChannelManager(context, timeoutExecutor, callbackExecutor);
 
         try {
             registerContextListeners(context);
@@ -184,6 +186,10 @@ public class Application implements ServletContextListener {
             timeoutExecutor.shutdown();
         }
 
+        if (callbackExecutor != null) {
+            callbackExecutor.shutdown();
+        }
+
         if (writerExecutor != null) {
             writerExecutor.shutdownNow();
         }
@@ -197,6 +203,17 @@ public class Application implements ServletContextListener {
                 if (!timeoutExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
                     LOGGER.log(Level.WARNING, "Timeout Thread ExecutorService is not stopping...");
                     timeoutExecutor.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                LOGGER.log(Level.SEVERE, "Interrupted while waiting for threads to stop", e);
+            }
+        }
+
+        if (callbackExecutor != null) {
+            try {
+                if (!callbackExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
+                    LOGGER.log(Level.WARNING, "Callback Thread ExecutorService is not stopping...");
+                    callbackExecutor.shutdownNow();
                 }
             } catch (InterruptedException e) {
                 LOGGER.log(Level.SEVERE, "Interrupted while waiting for threads to stop", e);

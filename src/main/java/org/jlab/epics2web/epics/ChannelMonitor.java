@@ -16,11 +16,7 @@ import gov.aps.jca.event.MonitorListener;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Set;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CopyOnWriteArraySet;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -48,6 +44,7 @@ class ChannelMonitor implements Closeable {
     private final CAJChannel channel;
     private final CAJContext context;
     private final ScheduledExecutorService timeoutExecutor;
+    private final ExecutorService callbackExecutor;
     private final String pv;
 
     enum MonitorState {
@@ -72,10 +69,11 @@ class ChannelMonitor implements Closeable {
      * @param context The EPICS CA Context
      * @param timeoutExecutor The thread pool to use for connection timeout
      */
-    public ChannelMonitor(String pv, CAJContext context, ScheduledExecutorService timeoutExecutor) throws CAException {
+    public ChannelMonitor(String pv, CAJContext context, ScheduledExecutorService timeoutExecutor, ExecutorService callbackExecutor) throws CAException {
         this.pv = pv;
         this.context = context;
         this.timeoutExecutor = timeoutExecutor;
+        this.callbackExecutor = callbackExecutor;
 
         //LOGGER.log(Level.FINEST, "Creating channel: {0}", pv);
         channel = (CAJChannel) context.createChannel(pv, new TimedChannelConnectionListener());
@@ -226,31 +224,36 @@ class ChannelMonitor implements Closeable {
          */
         @Override
         public void connectionChanged(ConnectionEvent ce) {
-            //LOGGER.log(Level.FINEST, "Connection Changed - Connected: {0}", ce.isConnected());
+            callbackExecutor.submit(new Runnable(){
+                @Override
+                public void run() {
+                    //LOGGER.log(Level.FINEST, "Connection Changed - Connected: {0}", ce.isConnected());
 
-            try {
-                future.cancel(false); // only needed for initial connection, on reconnects this will result in "false" return value, which is ignored
+                    try {
+                        future.cancel(false); // only needed for initial connection, on reconnects this will result in "false" return value, which is ignored
 
-                if (ce.isConnected()) {
-                    DBRType type = channel.getFieldType();
+                        if (ce.isConnected()) {
+                            DBRType type = channel.getFieldType();
 
-                    if (type == DBRType.ENUM) {
-                        handleEnumConnection();
-                    } else {
-                        handleRegularConnectionOrReconnect();
+                            if (type == DBRType.ENUM) {
+                                handleEnumConnection();
+                            } else {
+                                handleRegularConnectionOrReconnect();
+                            }
+                        } else {
+                            //CAJChannel c = (CAJChannel) ce.getSource();
+                            //LOGGER.log(Level.WARNING, "Unable to connect to channel: {0}", c.getName());
+
+                            state.set(MonitorState.DISCONNECTED);
+                            notifyPvInfoAll(false);
+                        }
+                    } catch (CAException e) {
+                        LOGGER.log(Level.SEVERE, "Unable to monitor channel", e);
+                        state.set(MonitorState.DISCONNECTED);
+                        notifyPvInfoAll(false);
                     }
-                } else {
-                    //CAJChannel c = (CAJChannel) ce.getSource();
-                    //LOGGER.log(Level.WARNING, "Unable to connect to channel: {0}", c.getName());                    
-
-                    state.set(MonitorState.DISCONNECTED);
-                    notifyPvInfoAll(false);
                 }
-            } catch (CAException e) {
-                LOGGER.log(Level.SEVERE, "Unable to monitor channel", e);
-                state.set(MonitorState.DISCONNECTED);
-                notifyPvInfoAll(false);
-            }
+            });
         }
 
         /**
@@ -308,15 +311,20 @@ class ChannelMonitor implements Closeable {
 
             @Override
             public void getCompleted(GetEvent ge) {
-                future.cancel(false);
-                DBR_LABELS_Enum labelRecord = (DBR_LABELS_Enum) ge.getDBR();
-                enumLabels.set(labelRecord.getLabels());
+                callbackExecutor.submit(new Runnable(){
+                    @Override
+                    public void run() {
+                        future.cancel(false);
+                        DBR_LABELS_Enum labelRecord = (DBR_LABELS_Enum) ge.getDBR();
+                        enumLabels.set(labelRecord.getLabels());
 
-                try {
-                    handleRegularConnectionOrReconnect();
-                } catch (Exception e) {
-                    LOGGER.log(Level.WARNING, "Unable to register monitor after enum label fetch", e);
-                }
+                        try {
+                            handleRegularConnectionOrReconnect();
+                        } catch (Exception e) {
+                            LOGGER.log(Level.WARNING, "Unable to register monitor after enum label fetch", e);
+                        }
+                    }
+                });
             }
         }
     }
@@ -333,11 +341,16 @@ class ChannelMonitor implements Closeable {
          */
         @Override
         public void monitorChanged(MonitorEvent me) {
-            DBR dbr = me.getDBR();
+            callbackExecutor.submit(new Runnable() {
+                @Override
+                public void run() {
+                    DBR dbr = me.getDBR();
 
-            lastDbr = dbr;
+                    lastDbr = dbr;
 
-            notifyPvUpdateAll(dbr);
+                    notifyPvUpdateAll(dbr);
+                }
+            });
         }
     }
 }

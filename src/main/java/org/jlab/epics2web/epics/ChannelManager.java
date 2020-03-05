@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -35,17 +36,20 @@ public class ChannelManager {
     private final Map<PvListener, Set<String>> clientMap = new ConcurrentHashMap<>();
 
     private volatile CAJContext context;
-    private final ScheduledExecutorService executor;
+    private final ScheduledExecutorService timeoutExecutor;
+    private final ExecutorService callbackExecutor;
 
     /**
      * Create a new ChannelMonitorManager.
      *
      * @param context EPICS channel access context
-     * @param executor Thread pool for connection timeout
+     * @param timeoutExecutor Thread pool for connection timeout
+     * @param callbackExecutor Thread pool for callbacks
      */
-    public ChannelManager(CAJContext context, ScheduledExecutorService executor) {
+    public ChannelManager(CAJContext context, ScheduledExecutorService timeoutExecutor, ExecutorService callbackExecutor) {
         this.context = context;
-        this.executor = executor;
+        this.timeoutExecutor = timeoutExecutor;
+        this.callbackExecutor = callbackExecutor;
     }
 
     public void reset(CAJContext context) {
@@ -221,7 +225,7 @@ public class ChannelManager {
                     if (monitor == null) {
                         //LOGGER.log(Level.FINEST, "Opening ChannelMonitor: {0}", pv);
                         try {
-                            monitor = new ChannelMonitor(pv, context, executor);
+                            monitor = new ChannelMonitor(pv, context, timeoutExecutor, callbackExecutor);
                             monitorMap.put(pv, monitor);
                         } catch (CAException e) {
                             LOGGER.log(Level.WARNING, "Unable to create channel monitor; skipping", e);
