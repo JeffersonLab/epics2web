@@ -1,9 +1,11 @@
 plugins {
-    id 'java'
-    id 'war'  
+    id 'war'
+    id "com.eriwen.gradle.css" version "2.14.0"
+    id "eu.butter.gradle.js" version "2.15.1"
 }
 
 description = "EPICS to web gateway"
+group 'org.jlab'
 version = '1.9.0'
 
 ext {
@@ -28,6 +30,8 @@ dependencies {
 }
 
 war {
+    dependsOn(minifyCss)
+    dependsOn(minifyJs)
     archiveName 'epics2web.war'
     filesMatching('WEB-INF/web.xml') {
         filter {
@@ -40,4 +44,22 @@ war {
             String line -> line.replaceAll("@PRODUCTION_RELEASE@", productionRelease)
         }
     }
+    from('build') {
+        include '*.min.css'
+        into 'resources/css/'
+    }
+    from('build') {
+        include '*.min.js'
+        into 'resources/js/'
+    }
+}
+
+minifyCss {
+    source = "${projectDir}/src/main/webapp/resources/css/epics2web.css"
+    dest = file("${projectDir}/build/epics2web.min.css")
+}
+
+minifyJs {
+    source = "${projectDir}/src/main/webapp/resources/js/epics2web.js"
+    dest = file("${projectDir}/build/epics2web.min.js")
 }
