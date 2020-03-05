@@ -9,7 +9,7 @@ group 'org.jlab'
 version = '1.9.0'
 
 ext {
-    releaseDate = 'March 04 2020'
+    releaseDate = 'March 05 2020'
     productionRelease = 'true'
 }
 
