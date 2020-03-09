@@ -158,7 +158,8 @@ public class ChannelManager {
             } finally {
                 for (int i = 0; i < pvs.length; i++) {
                     if (channels[i] != null) {
-                        channels[i].destroy();
+                        context.destroyChannel(channels[i], false); // ChannelMonitor.close() also uses this context so don't force
+                        //channels[i].destroy(); // This can deadlock
                     }
                 }
             }

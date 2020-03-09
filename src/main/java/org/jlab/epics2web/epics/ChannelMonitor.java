@@ -137,7 +137,7 @@ class ChannelMonitor implements Closeable {
             try {
                 // channel.destroy(); // method is unsafe (can deadlock)
                 // so use context method instead                
-                context.destroyChannel(channel, true);
+                context.destroyChannel(channel, false); // Don't force because ChannelManager.get() also uses same context!
             } catch (CAException e) {
                 throw new IOException("Unable to close channel", e);
             }
