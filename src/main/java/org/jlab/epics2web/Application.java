@@ -66,7 +66,8 @@ public class Application implements ServletContextListener {
                 try {
                     while (true) {
                         if (session.isOpen()) {
-                            String msg = writequeue.take(); // Block until msg to deliver
+                            String msg = writequeue.take(); // Block until msg to deliver or InterruptedException
+
                             if (msg != null) {
                                 try {
                                     session.getBasicRemote().sendText(msg);
@@ -74,20 +75,18 @@ public class Application implements ServletContextListener {
                                     LOGGER.log(Level.FINEST, "Unable to send message: ", e);
 
                                     if (!session.isOpen()) {
-                                        sessionManager.removeClient(session);
                                         LOGGER.log(Level.FINEST, "Session closed after write exception; shutting down write thread");
                                         break;
                                     }
                                 }
                             }
                         } else {
-                            sessionManager.removeClient(session);
                             LOGGER.log(Level.FINEST, "Session closed; shutting down write thread");
                             break;
                         }
                     }
                 } catch (InterruptedException e) {
-                    //LOGGER.log(Level.INFO, "Shutting down writer thread as requested", e);
+                    LOGGER.log(Level.FINEST, "Shutting down writer thread as requested", e);
                 }
             }
         });
