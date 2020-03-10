@@ -148,17 +148,8 @@ public class MonitorEndpoint {
     public void onError(Session session, Throwable t) {
         //t.printStackTrace();
         LOGGER.log(Level.FINE, "WebSocket Error: {0}", t.getMessage());
-        if (session != null) {
 
-            if (Application.WRITE_STRATEGY == WriteStrategy.BLOCKING_QUEUE) {
-                Future<?> writeThreadFuture = (Future<?>) session.getUserProperties().get("writeThreadFuture");
-                writeThreadFuture.cancel(true);
-            }
-
-            Application.sessionManager.removeClient(session);
-        }
-
-        // Try to prevent classloader leak
+        // Try to prevent classloader leak (this is done in onOpen but, might be skipped onError)
         WebSocketAuditContext.setCurrentInstance(null);
     }
 

@@ -143,14 +143,11 @@ public class Application implements ServletContextListener {
                                                     }
                                                     if (!result.isOK()) {
                                                         LOGGER.log(Level.FINEST, "Unable to send message", result.getException());
-                                                        sessionManager.removeClient(session);
                                                     }
                                                 }
                                             });
                                         }
                                     }
-                                } else {
-                                    sessionManager.removeClient(session);
                                 }
                             }
                         } catch (Exception e) {

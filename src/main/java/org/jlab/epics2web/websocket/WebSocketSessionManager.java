@@ -283,7 +283,6 @@ public class WebSocketSessionManager {
 
     @SuppressWarnings("unchecked")
     public void send(Session session, String pv, String msg) {
-        
         if (session.isOpen()) {
             if (Application.WRITE_STRATEGY == WriteStrategy.ASYNC_QUEUE) {
                 ConcurrentLinkedQueue<String> writequeue = (ConcurrentLinkedQueue<String>) session.getUserProperties().get("writequeue");               
@@ -320,11 +319,6 @@ public class WebSocketSessionManager {
                     LOGGER.log(Level.WARNING, "Unable to send message", e);
                 }
             }
-        } else {
-            removeClient(session);
-            /*LOGGER.log(Level.FINEST,
-                    "Session for PV {0} is closed: {1}",
-                    new Object[]{pv, session});*/
         }
     }
 }
