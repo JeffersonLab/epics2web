@@ -224,6 +224,7 @@ class ChannelMonitor implements Closeable {
          */
         @Override
         public void connectionChanged(ConnectionEvent ce) {
+            // Action sometimes calls back into CA lib, which isn't re-entrant so we use a separate thread
             callbackExecutor.submit(new Runnable(){
                 @Override
                 public void run() {
@@ -311,6 +312,7 @@ class ChannelMonitor implements Closeable {
 
             @Override
             public void getCompleted(GetEvent ge) {
+                // Action sometimes calls back into CA lib, which isn't re-entrant so we use a separate thread
                 callbackExecutor.submit(new Runnable(){
                     @Override
                     public void run() {
@@ -341,16 +343,15 @@ class ChannelMonitor implements Closeable {
          */
         @Override
         public void monitorChanged(MonitorEvent me) {
-            callbackExecutor.submit(new Runnable() {
-                @Override
-                public void run() {
-                    DBR dbr = me.getDBR();
+            DBR dbr = me.getDBR();
 
-                    lastDbr = dbr;
+            lastDbr = dbr;
 
-                    notifyPvUpdateAll(dbr);
-                }
-            });
+            // Make sure handlers do not call back into CA lib on this callback thread.
+            // We could call in separate thread, but that's costly and then you must
+            // then be careful not to pass dbr out-of-order (use lastDbr directly, which could skip intermediate
+            // updates and duplicate lastDbr)
+            notifyPvUpdateAll(lastDbr);
         }
     }
 }
