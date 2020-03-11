@@ -6,10 +6,10 @@ plugins {
 
 description = "EPICS to web gateway"
 group 'org.jlab'
-version = '1.9.2'
+version = '1.9.3'
 
 ext {
-    releaseDate = 'March 10 2020'
+    releaseDate = 'March 11 2020'
     productionRelease = 'true'
 }
 
