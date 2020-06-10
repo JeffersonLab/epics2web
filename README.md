@@ -177,6 +177,13 @@ con.oninfo = function (e) {
 
 *Note:* epics2web also works and was tested with GlassFish, and presumably works with WildFly or any other Java web application server that supports Web Sockets.
 
+## Build from Source
+```
+git clone https://github.com/JeffersonLab/epics2web
+cd epics2web
+gradlew build
+```
+
 ## Configuration
 
 This application uses the [Channel Access for Java](http://epics-jca.sourceforge.net/caj/) library.   It requires a working EPICS channel access environment with the environment variable *EPICS_CA_ADDR_LIST* set.  See Also: [Advanced Configuration](https://github.com/JeffersonLab/epics2web/wiki/Advanced-Configuration).
