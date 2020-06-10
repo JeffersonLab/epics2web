@@ -181,7 +181,7 @@ con.oninfo = function (e) {
 ```
 git clone https://github.com/JeffersonLab/epics2web
 cd epics2web
-gradlew build
+gradlew war
 ```
 
 ## Configuration
