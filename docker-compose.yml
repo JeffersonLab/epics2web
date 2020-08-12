@@ -21,8 +21,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        - CUSTOM_CRT_URL=http://pki.jlab.org/JLabCA.crt
     hostname: epics2web
     container_name: epics2web
+    environment:
+      EPICS_CA_ADDR_LIST: softioc
     depends_on:
       - softioc
     ports:
