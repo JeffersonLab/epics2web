@@ -184,6 +184,11 @@ cd epics2web
 gradlew war
 ```
 
+## Docker
+```
+docker run --rm -it -e EPICS_CA_ADDR_LIST=softioc --name epics2web slominskir/epics2web
+```
+
 ## Configuration
 
 This application uses the [Channel Access for Java](http://epics-jca.sourceforge.net/caj/) library.   It requires a working EPICS channel access environment with the environment variable *EPICS_CA_ADDR_LIST* set.  See Also: [Advanced Configuration](https://github.com/JeffersonLab/epics2web/wiki/Advanced-Configuration).
