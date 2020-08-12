@@ -16,8 +16,6 @@ RUN git clone https://github.com/JeffersonLab/epics2web \
     && gradle build $OPTIONAL_CERT_ARG
 
 
-ENTRYPOINT bash
-
 FROM tomcat:9.0.37-jdk11-adoptopenjdk-hotspot
 
 COPY --from=builder /epics2web/build/libs /usr/local/tomcat/webapps
