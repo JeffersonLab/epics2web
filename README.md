@@ -38,7 +38,7 @@ Failure:
 {error: <error-reason>}
 ```
 
-Note: You can optionally provide a parameter named "n" (the value can be anything) and it will be treated like "caget -n", which results in enum type PVs returning the numeric value instead of the string label.
+**Note**: You can optionally provide a parameter named "n" (the value can be anything) and it will be treated like "caget -n", which results in enum type PVs returning the numeric value instead of the string label.
 
 ### Monitor
 
@@ -146,7 +146,7 @@ Convenience function for pong event.  If more than one callback is needed use Cl
 | chunkedRequestPvsCount | Max number of PV names to transmit in a monitor or clear command; 0 to disable chunking | 400 |
 | clientName | Name of client application | window.location.href |
 
-## Monitor Example
+#### Monitor Example
 
 ```JavaScript
 var options = {},
