@@ -26,7 +26,7 @@ A gateway server and accompanying JavaScript client API to monitor [EPICS](http:
 
 ### Get
 
-Submit one or more parameters of name "pv" to the "caget" URL.  The response is a JSON object of the form:
+Submit one or more parameters of name "pv" to the __epics2web/caget__ URL.  The response is a JSON object of the form:
 
 Success:
 ```JavaScript
