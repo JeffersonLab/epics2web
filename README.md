@@ -42,6 +42,37 @@ Failure:
 
 ### Monitor
 
+#### Example
+
+```JavaScript
+var options = {},
+    monitoredPvs = ['mypvname1', 'mypvname2'],
+    con = new jlab.epics2web.ClientConnection(options);
+
+con.onopen = function (e) {
+    console.log('Socket Connected');
+    con.monitorPvs(monitoredPvs);
+};
+
+con.onupdate = function (e) {
+    console.log('Update');
+    console.log('PV Name: ' + e.detail.pv);
+    console.log('Date: ' + e.detail.date);
+    console.log('PV Value: ' + e.detail.value);
+};
+
+con.oninfo = function (e) {
+    console.log('Info');
+    console.log('PV Name: ' + e.detail.pv);
+    console.log('Connected: ' + e.detail.connected);
+    console.log('PV Type: ' + e.detail.datatype);
+     
+    if (typeof e.detail['enum-labels'] !== 'undefined') {
+        console.log('Enum Labels: ' + e.detail['enum-labels']);
+    }    
+};
+```
+
 #### Methods
 
 **jlab.epics2web.ClientConnection(options)**  
@@ -145,37 +176,6 @@ Convenience function for pong event.  If more than one callback is needed use Cl
 | reconnectWaitMillis | Milliseconds to wait after socket closed before attempting reconnect | 1000 |
 | chunkedRequestPvsCount | Max number of PV names to transmit in a monitor or clear command; 0 to disable chunking | 400 |
 | clientName | Name of client application | window.location.href |
-
-#### Monitor Example
-
-```JavaScript
-var options = {},
-    monitoredPvs = ['mypvname1', 'mypvname2'],
-    con = new jlab.epics2web.ClientConnection(options);
-
-con.onopen = function (e) {
-    console.log('Socket Connected');
-    con.monitorPvs(monitoredPvs);
-};
-
-con.onupdate = function (e) {
-    console.log('Update');
-    console.log('PV Name: ' + e.detail.pv);
-    console.log('Date: ' + e.detail.date);
-    console.log('PV Value: ' + e.detail.value);
-};
-
-con.oninfo = function (e) {
-    console.log('Info');
-    console.log('PV Name: ' + e.detail.pv);
-    console.log('Connected: ' + e.detail.connected);
-    console.log('PV Type: ' + e.detail.datatype);
-     
-    if (typeof e.detail['enum-labels'] !== 'undefined') {
-        console.log('Enum Labels: ' + e.detail['enum-labels']);
-    }    
-};
-```
 
 ## Install
    1. Download [Apache Tomcat](http://tomcat.apache.org/)
