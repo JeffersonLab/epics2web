@@ -24,7 +24,7 @@ A gateway server and accompanying JavaScript client API to monitor [EPICS](http:
 
 ## API
 
-### GET
+### Get
 
 Submit one or more parameters of name "pv" to the "caget" URL.  The response is a JSON object of the form:
 
@@ -192,6 +192,10 @@ cd epics2web
 gradlew war
 ```
 
+## Configure
+
+This application uses the [Channel Access for Java](http://epics-jca.sourceforge.net/caj/) library.   It requires a working EPICS channel access environment with the environment variable *EPICS_CA_ADDR_LIST* set.  See Also: [Advanced Configuration](https://github.com/JeffersonLab/epics2web/wiki/Advanced-Configuration).
+
 ## Docker
 ```
 docker run --rm -it -e EPICS_CA_ADDR_LIST=softioc -p 8080:8080 --name epics2web slominskir/epics2web
@@ -206,11 +210,6 @@ Now navigate to http://localhost:8080/epics2web/
 ```
 docker-compose up
 ```
-
-
-## Configure
-
-This application uses the [Channel Access for Java](http://epics-jca.sourceforge.net/caj/) library.   It requires a working EPICS channel access environment with the environment variable *EPICS_CA_ADDR_LIST* set.  See Also: [Advanced Configuration](https://github.com/JeffersonLab/epics2web/wiki/Advanced-Configuration).
 
 ## See Also
 - [PV Monitor Runchart](https://github.com/JeffersonLab/runchart)
