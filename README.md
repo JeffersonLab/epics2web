@@ -1,5 +1,5 @@
 # epics2web
-An EPICS CA Web Gateway server and accompanying JavaScript client API to monitor [EPICS](http://www.aps.anl.gov/epics/) Channel Access over Web Sockets.  A caget-like JSON web service endpoint is also provided.
+A gateway server and accompanying JavaScript client API to monitor [EPICS](http://www.aps.anl.gov/epics/) Channel Access over Web Sockets.  A caget-like JSON web service endpoint is also provided.
 
 ---
 - [API](https://github.com/JeffersonLab/epics2web#api)
@@ -14,13 +14,13 @@ An EPICS CA Web Gateway server and accompanying JavaScript client API to monitor
 ![Overview](https://github.com/JeffersonLab/epics2web/raw/master/doc/img/Overview.png?raw=true "Overview")
 
 ### Get Test Page
-![GetTest](/doc/img/GetTest.png?raw=true "GetTest")
+![GetTest](https://github.com/JeffersonLab/epics2web/raw/master/doc/img/GetTest.png?raw=true "GetTest")
 
 ### Monitor Test Page
-![MonitorTest](/doc/img/MonitorTest.png?raw=true "MonitorTest")
+![MonitorTest](https://github.com/JeffersonLab/epics2web/raw/master/doc/img/MonitorTest.png?raw=true "MonitorTest")
 
 ### Monitor Console Page
-![Console](/doc/img/Console.png?raw=true "Console")
+![Console](https://github.com/JeffersonLab/epics2web/raw/master/doc/img/Console.png?raw=true "Console")
 
 ## API
 
