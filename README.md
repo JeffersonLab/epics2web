@@ -206,7 +206,7 @@ Now navigate to http://localhost:8080/epics2web/
 
 **Note**: substitute _softioc_ for an IOC or CA gateway address or else use compose below to start a softioc container.
 
-## Docker Compose
+### Docker Compose
 ```
 docker-compose up
 ```
