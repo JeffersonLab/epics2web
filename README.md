@@ -1,11 +1,16 @@
 # epics2web
-EPICS CA Web Gateway
+An EPICS CA Web Gateway server and accompanying JavaScript client API to monitor [EPICS](http://www.aps.anl.gov/epics/) Channel Access over Web Sockets.  A caget JSON web service endpoint is also provided.
 
-## Introduction
-Provides a JavaScript API to monitor [EPICS](http://www.aps.anl.gov/epics/) Channel Access over Web Sockets.  A caget JSON web service endpoint is also provided.
+---
+- [API](https://github.com/JeffersonLab/epics2web#api)
+- [Install](https://github.com/JeffersonLab/epics2web#build)
+- [Build](https://github.com/JeffersonLab/epics2web#build)
+- [Configure](https://github.com/JeffersonLab/epics2web#configure)
+- [Docker](https://github.com/JeffersonLab/epics2web#docker)
+---
 
 ### Overview Page
-![Overview](/doc/img/Overview.png?raw=true "Overview")
+![Overview](https://github.com/JeffersonLab/epics2web/raw/master/doc/img/Overview.png?raw=true "Overview")
 
 ### Get Test Page
 ![GetTest](/doc/img/GetTest.png?raw=true "GetTest")
@@ -16,7 +21,9 @@ Provides a JavaScript API to monitor [EPICS](http://www.aps.anl.gov/epics/) Chan
 ### Monitor Console Page
 ![Console](/doc/img/Console.png?raw=true "Console")
 
-## Get API
+## API
+
+### GET
 
 Submit one or more parameters of name "pv" to the "caget" URL.  The response is a JSON object of the form:
 
@@ -32,9 +39,9 @@ Failure:
 
 Note: You can optionally provide a parameter named "n" (the value can be anything) and it will be treated like "caget -n", which results in enum type PVs returning the numeric value instead of the string label.
 
-## Monitor API
+### Monitor
 
-### Methods
+#### Methods
 
 **jlab.epics2web.ClientConnection(options)**  
 Create a new ClientConnection.  
@@ -95,7 +102,7 @@ Convenience function for info event.  If more than one callback is needed use Cl
 Convenience function for pong event.  If more than one callback is needed use ClientConnection.addEventListener instead.  
 *Input:* function - the function to call  
 
-### Events
+#### Events
 - *open* - This event is triggered after the socket is open
 - *close* - This event is triggered after the socket is closed
 - *connecting* - This event is triggered as the socket is connecting
@@ -115,7 +122,7 @@ Convenience function for pong event.  If more than one callback is needed use Cl
   - *Param:* event.detail.date - the update date
 - *pong* - This event is triggered upon a pong message
 
-### Datatypes
+#### Datatypes
 - DBR_DOUBLE
 - DBR_FLOAT
 - DBR_INT
@@ -124,7 +131,7 @@ Convenience function for pong event.  If more than one callback is needed use Cl
 - DBR_STRING
 - DBR_ENUM
 
-### Options
+#### Options
 | Name | Description | Default |
 |------|-------------|---------|
 | url | Path to epics2web web socket monitor | "ws://" + window.location.host + "/epics2web/monitor" |
@@ -169,7 +176,7 @@ con.oninfo = function (e) {
 };
 ```
 
-## Installation
+## Install
    1. Download [Apache Tomcat](http://tomcat.apache.org/)
    1. Download [epics2web.war](https://github.com/JeffersonLab/epics2web/releases) and drop it into the Tomcat webapps directory
    1. Copy [jar files](https://github.com/JeffersonLab/epics2web/tree/master/lib) from project lib directory to Tomcat lib directory
@@ -177,7 +184,7 @@ con.oninfo = function (e) {
 
 *Note:* epics2web also works and was tested with GlassFish, and presumably works with WildFly or any other Java web application server that supports Web Sockets.
 
-## Build from Source
+## Build
 ```
 git clone https://github.com/JeffersonLab/epics2web
 cd epics2web
@@ -200,7 +207,7 @@ docker-compose up
 ```
 
 
-## Configuration
+## Configure
 
 This application uses the [Channel Access for Java](http://epics-jca.sourceforge.net/caj/) library.   It requires a working EPICS channel access environment with the environment variable *EPICS_CA_ADDR_LIST* set.  See Also: [Advanced Configuration](https://github.com/JeffersonLab/epics2web/wiki/Advanced-Configuration).
 
