@@ -198,18 +198,11 @@ This application uses the [Channel Access for Java](http://epics-jca.sourceforge
 
 ## Docker
 ```
-docker run --rm -it -e EPICS_CA_ADDR_LIST=softioc -p 8080:8080 --name epics2web slominskir/epics2web
+docker-compose up
 ```
 Image hosted on [DockerHub](https://hub.docker.com/r/slominskir/epics2web)
 
 Now navigate to http://localhost:8080/epics2web/
-
-**Note**: substitute _softioc_ for an IOC or CA gateway address or else use compose below to start a softioc container.
-
-### Docker Compose
-```
-docker-compose up
-```
 
 ## See Also
 - [PV Monitor Runchart](https://github.com/JeffersonLab/runchart)
