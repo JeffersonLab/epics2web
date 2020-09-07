@@ -8,6 +8,8 @@ description = "EPICS to web gateway"
 group 'org.jlab'
 version = '1.9.3'
 
+def junitJupiterVersion = '5.4.2'
+
 ext {
     releaseDate = 'March 11 2020'
     productionRelease = 'true'
@@ -22,12 +24,22 @@ compileJava   {
     targetCompatibility = '1.8'
 }
 
+test {
+    useJUnitPlatform()
+}
+
+
 dependencies {
     compile 'javax.servlet:jstl:1.2'
     implementation 'org.glassfish:javax.json:1.1.4'
     implementation 'org.epics:jca:2.3.6'
     implementation 'org.epics:caj:1.1.15'
     providedCompile 'javax:javaee-api:7.0'
+
+    testImplementation "org.junit.jupiter:junit-jupiter-api:$junitJupiterVersion"
+    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:$junitJupiterVersion"
+    testCompile "org.testcontainers:testcontainers:1.14.3"
+    testCompile "org.testcontainers:junit-jupiter:1.14.3"
 }
 
 war {
