@@ -4,6 +4,8 @@ import com.cosylab.epics.caj.CAJContext;
 import gov.aps.jca.CAException;
 import gov.aps.jca.JCALibrary;
 import gov.aps.jca.configuration.DefaultConfiguration;
+
+import javax.enterprise.inject.Default;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -23,12 +25,16 @@ import java.util.logging.Logger;
 public class ContextFactory {
     
     private static final Logger logger = Logger.getLogger(ContextFactory.class.getName());
-    private final DefaultConfiguration config = new DefaultConfiguration("myconfig");
+    private final DefaultConfiguration config;
     
     public ContextFactory() {
-        construct();
+        this(getDefault());
     }
-    
+
+    public ContextFactory(DefaultConfiguration config) {
+        this.config = config;
+    }
+
     /**
      * Get an EPICS channel access context.  Make sure to destroy it when you're done.
      * 
@@ -40,19 +46,17 @@ public class ContextFactory {
     }
     
     /**
-     * Construct the context factory.
+     * Get default CA configuration, which looks for the environment variable EPICS_CA_ADDR_LIST.
      */
-    private void construct() {
-        logger.log(Level.FINEST, "Constructing ContextFactory");
+    public static DefaultConfiguration getDefault() {
+        DefaultConfiguration defaultConfig = new DefaultConfiguration("myconfig");
 
         String addrList = System.getenv("EPICS_CA_ADDR_LIST");
         
-        if(addrList == null || addrList.trim().isEmpty()) {
-            throw new RuntimeException("Environment variable EPICS_CA_ADDR_LIST must be set");
-        }
-        
-        config.setAttribute("addr_list", addrList);
-        config.setAttribute("auto_addr_list", "false");
-        config.setAttribute("class", JCALibrary.CHANNEL_ACCESS_JAVA);       
+        defaultConfig.setAttribute("addr_list", addrList);
+        defaultConfig.setAttribute("auto_addr_list", "false");
+        defaultConfig.setAttribute("class", JCALibrary.CHANNEL_ACCESS_JAVA);
+
+        return defaultConfig;
     }  
 }
