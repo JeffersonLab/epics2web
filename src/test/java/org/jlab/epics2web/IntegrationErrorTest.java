@@ -7,6 +7,7 @@ import gov.aps.jca.CAException;
 import gov.aps.jca.configuration.DefaultConfiguration;
 import gov.aps.jca.dbr.DBR;
 import gov.aps.jca.dbr.DBRType;
+import gov.aps.jca.dbr.DBR_Double;
 import gov.aps.jca.event.ConnectionEvent;
 import gov.aps.jca.event.ConnectionListener;
 import org.jlab.epics2web.epics.ChannelManager;
@@ -105,7 +106,7 @@ public class IntegrationErrorTest {
 
             @Override
             public void notifyPvUpdate(String pv, DBR dbr) {
-                System.out.println("Update: " + pv + " " + dbr);
+                System.out.println("Update: " + pv + " " + ((DBR_Double)dbr).getDoubleValue()[0]);
                 latch.countDown();
             }
         };
