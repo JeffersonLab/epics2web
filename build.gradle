@@ -37,6 +37,10 @@ dependencies {
     testCompile 'org.slf4j:slf4j-simple:1.6.1'
 }
 
+test {
+    classpath = project.sourceSets.test.runtimeClasspath + files("${projectDir}/examples/softioc-db")
+}
+
 war {
     dependsOn(minifyCss)
     dependsOn(minifyJs)

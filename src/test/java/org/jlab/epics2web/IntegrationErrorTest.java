@@ -1,6 +1,7 @@
 package org.jlab.epics2web;
 
 import com.cosylab.epics.caj.CAJContext;
+import com.github.dockerjava.api.command.CreateContainerCmd;
 import gov.aps.jca.CAException;
 import gov.aps.jca.dbr.DBR;
 import gov.aps.jca.dbr.DBRType;
@@ -11,18 +12,38 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.Wait;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.Consumer;
 
 public class IntegrationErrorTest {
     private static ChannelManager channelManager;
     private static CAJContext context;
 
+    private static Logger LOGGER = LoggerFactory.getLogger(IntegrationErrorTest.class);
+
     public static GenericContainer softioc = new GenericContainer("slominskir/softioc")
-            .withExposedPorts(5064, 5065);
+            .withExposedPorts(5064, 5065).withClasspathResourceMapping("softioc.db",
+                    "/db/softioc.db",
+                    BindMode.READ_ONLY).withLogConsumer(new Slf4jLogConsumer(LOGGER))
+            .withCreateContainerCmdModifier(new Consumer<CreateContainerCmd>() {
+                @Override
+                public void accept(CreateContainerCmd cmd) {
+                    cmd
+                            .withAttachStdin(true)
+                            .withStdinOpen(true)
+                            .withTty(true);
+                }
+            })
+            .waitingFor(Wait.forLogMessage("iocRun: All initialization complete", 1));
 
     @BeforeClass
     public static void setUp() throws CAException {
@@ -35,7 +56,7 @@ public class IntegrationErrorTest {
 
         ContextFactory factory = new ContextFactory();
 
-        CAJContext context = factory.newContext();
+        context = factory.newContext();
 
         ScheduledExecutorService timeoutExecutor = Executors.newScheduledThreadPool(1, new CustomPrefixThreadFactory("CA-Timeout-"));
         ExecutorService callbackExecutor = Executors.newCachedThreadPool(new CustomPrefixThreadFactory("Callback-"));
@@ -44,8 +65,14 @@ public class IntegrationErrorTest {
     }
 
     @AfterClass
-    public static void tearDown() throws CAException {
-        context.destroy();
+    public static void tearDown() {
+        if(context != null) {
+            try {
+                context.destroy();
+            } catch(Exception e) {
+                LOGGER.warn("Unable to cleanup CA Context", e);
+            }
+        }
 
         softioc.stop();
     }
