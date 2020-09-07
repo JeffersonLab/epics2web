@@ -24,11 +24,6 @@ compileJava   {
     targetCompatibility = '1.8'
 }
 
-test {
-    useJUnitPlatform()
-}
-
-
 dependencies {
     compile 'javax.servlet:jstl:1.2'
     implementation 'org.glassfish:javax.json:1.1.4'
@@ -38,7 +33,8 @@ dependencies {
 
     testImplementation 'junit:junit:4.13'
 
-    testImplementation "org.testcontainers:testcontainers:1.14.3"
+    testCompile "org.testcontainers:testcontainers:1.14.3"
+    testCompile 'org.slf4j:slf4j-simple:1.6.1'
 }
 
 war {
