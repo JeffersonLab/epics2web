@@ -34,6 +34,8 @@ import java.util.function.Consumer;
 public class IntegrationErrorTest {
     private static ChannelManager channelManager;
     private static CAJContext context;
+    private static ScheduledExecutorService timeoutExecutor;
+    private static ExecutorService callbackExecutor;
 
     private static Logger LOGGER = LoggerFactory.getLogger(IntegrationErrorTest.class);
 
@@ -75,8 +77,8 @@ public class IntegrationErrorTest {
 
         context = factory.newContext();
 
-        ScheduledExecutorService timeoutExecutor = Executors.newScheduledThreadPool(1, new CustomPrefixThreadFactory("CA-Timeout-"));
-        ExecutorService callbackExecutor = Executors.newCachedThreadPool(new CustomPrefixThreadFactory("Callback-"));
+        timeoutExecutor = Executors.newScheduledThreadPool(1, new CustomPrefixThreadFactory("CA-Timeout-"));
+        callbackExecutor = Executors.newCachedThreadPool(new CustomPrefixThreadFactory("Callback-"));
 
         channelManager = new ChannelManager(context, timeoutExecutor, callbackExecutor);
     }
@@ -92,24 +94,16 @@ public class IntegrationErrorTest {
         }
 
         softioc.stop();
+
+        timeoutExecutor.shutdownNow();
+        callbackExecutor.shutdownNow();
     }
 
     @Test
-    public void testCAStatus24() throws InterruptedException, IOException {
+    public void testBasicMonitor() throws InterruptedException, IOException, CAException {
         final CountDownLatch latch = new CountDownLatch(2);
 
-        PvListener listener = new PvListener() {
-            @Override
-            public void notifyPvInfo(String pv, boolean couldConnect, DBRType type, Integer count, String[] enumLabels) {
-                System.out.println("Info: " + pv + " " + couldConnect);
-            }
-
-            @Override
-            public void notifyPvUpdate(String pv, DBR dbr) {
-                System.out.println("Update: " + pv + " " + ((DBR_Double)dbr).getDoubleValue()[0]);
-                latch.countDown();
-            }
-        };
+        PvListener listener = new LatchPvListener(latch);
 
         channelManager.addPv(listener, "channel1");
 
@@ -118,12 +112,58 @@ public class IntegrationErrorTest {
         System.out.println("out: " + result.getStdout());
         System.out.println("exit: " + result.getExitCode());
 
-        latch.await(10, TimeUnit.SECONDS);
+        latch.await(5, TimeUnit.SECONDS);
+
+        channelManager.removeListener(listener);
 
         Assert.assertEquals(0, latch.getCount());
+    }
 
-        // TODO: here we need to disrupt connection to IOC to test error code 24 (and elsewhere error code 60)
-        //softioc.stop();
-        //Thread.sleep(15000);
+    @Test
+    public void testCAStatus24() throws IOException, InterruptedException, CAException {
+        // We really can't stop, then start container without setting fixed hostname!  Not sure where this test is going... yet!
+
+        final CountDownLatch latch = new CountDownLatch(2);
+
+        PvListener listener = new LatchPvListener(latch);
+
+        channelManager.addPv(listener, "channel2");
+
+        // Second execInContainer causes indefinite hang.... weird.  One more issue to troubleshoot; separate test class might be required?
+
+        /*Container.ExecResult result = softioc.execInContainer("caput", "channel2", "1");
+        System.out.println("err: " + result.getStderr());
+        System.out.println("out: " + result.getStdout());
+        System.out.println("exit: " + result.getExitCode());*/
+
+        latch.await(5, TimeUnit.SECONDS);
+
+        channelManager.removeListener(listener);
+
+        //Assert.assertEquals(0, latch.getCount());
+    }
+
+    /**
+     * PvListener for Testing that simply logs updates/info from monitor and counts down the provided latch on updates.
+     *
+     * This listener assumes it is listening to scalar double typed data (like from the test softioc)
+     * */
+    private class LatchPvListener implements PvListener {
+        private CountDownLatch latch;
+
+        LatchPvListener(CountDownLatch latch) {
+            this.latch = latch;
+        }
+
+        @Override
+        public void notifyPvInfo(String pv, boolean couldConnect, DBRType type, Integer count, String[] enumLabels) {
+            System.out.println("Info: " + pv + " " + couldConnect);
+        }
+
+        @Override
+        public void notifyPvUpdate(String pv, DBR dbr) {
+            System.out.println("Update: " + pv + " " + ((DBR_Double)dbr).getDoubleValue()[0]);
+            latch.countDown();
+        }
     }
 }
