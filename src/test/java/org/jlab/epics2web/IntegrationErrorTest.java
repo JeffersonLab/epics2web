@@ -121,7 +121,9 @@ public class IntegrationErrorTest {
 
     @Test
     public void testCAStatus24() throws IOException, InterruptedException, CAException {
-        // We really can't stop, then start container without setting fixed hostname!  Not sure where this test is going... yet!
+        // We really can't stop, then start container without setting fixed hostname!  Not sure where this test is going... yet!  No docker pause exposed, but perhaps execInContainer clean shutdown or restart of IOC?
+
+        // for status 60 we might be able to use https://www.testcontainers.org/modules/toxiproxy/ for TCP pieces.  We would need something else for UDP, perhaps Linux "tc".
 
         final CountDownLatch latch = new CountDownLatch(2);
 
