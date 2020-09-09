@@ -171,10 +171,14 @@ public class ChannelManager {
     private DBR doGet(CAJChannel channel, boolean enumLabel) throws CAException {
         DBR dbr;
 
-        if (enumLabel && channel.getFieldType().isENUM()) {
-            dbr = channel.get(DBRType.STRING, 1);
-        } else {
-            dbr = channel.get();
+        try {
+            if (enumLabel && channel.getFieldType().isENUM()) {
+                dbr = channel.get(DBRType.STRING, 1);
+            } else {
+                dbr = channel.get();
+            }
+        } catch(Exception e) { // wrap and add channel name to help with debugging (catch runtime IllegalStateException).
+            throw new CAException("Could not get channel " + channel.getName(), e);
         }
 
         return dbr;
