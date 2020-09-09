@@ -17,7 +17,6 @@ import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.*;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
-import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
 import java.util.concurrent.*;
@@ -35,10 +34,6 @@ public class IntegrationErrorTest {
     @ClassRule
     public static Network network = Network.newNetwork();
 
-    @ClassRule
-    public static ToxiproxyContainer toxiproxy = new ToxiproxyContainer("shopify/toxiproxy:2.1.0")
-            .withNetwork(network)
-            .withNetworkAliases("toxinet");
 
     public static GenericContainer softioc = new GenericContainer("slominskir/softioc") {
         {
@@ -66,9 +61,6 @@ public class IntegrationErrorTest {
             .waitingFor(Wait.forLogMessage("iocRun: All initialization complete", 1))
             //.withClasspathResourceMapping("softioc.db", "/db/softioc.db", BindMode.READ_ONLY)
             .withFileSystemBind("examples/softioc-db", "/db", BindMode.READ_ONLY);
-
-
-    final ToxiproxyContainer.ContainerProxy softproxy = toxiproxy.getProxy(softioc, 5064); // This isn't going to work - we need proxy to handle 2 TCP and 2 UDP ports!
 
     @BeforeClass
     public static void setUp() throws CAException {
@@ -214,11 +206,19 @@ public class IntegrationErrorTest {
         Assert.assertEquals(24, code.get());
     }
 
+    /**
+     * This test creates a monitor on a channel hosted on the "softioc", then severs the connection abruptly by
+     * disabling the network interface on the softioc, waits for unresponsive timeout periods to elapse, then
+     * restores the network interface; an error code 60 "unresponsive", should be detected.
+     *
+     * @throws IOException If unable to perform IO
+     * @throws InterruptedException If a thread is interrupted
+     * @throws CAException If unable to communicate over CA
+     */
     @Test
     public void testUnresponsiveCode60() throws IOException, InterruptedException, CAException {
-        // for status 60 we might be able to use https://www.testcontainers.org/modules/toxiproxy/ for TCP pieces.  We would need something else for UDP, perhaps Linux "tc".
-
         final CountDownLatch latch = new CountDownLatch(2);
+        final AtomicInteger code = new AtomicInteger();
 
         PvListener listener = new LatchPvListener(latch);
 
@@ -228,8 +228,6 @@ public class IntegrationErrorTest {
 
         // TODO: explore CAJ_DO_NOT_SHARE_CHANNELS option
         //context.setDoNotShareChannels(true);
-
-        // TODO: explore beacon period and connection timeout - set to small value to speed up test?
 
         context.addContextExceptionListener(new ContextExceptionListener() {
             @Override
@@ -241,6 +239,7 @@ public class IntegrationErrorTest {
             public void contextVirtualCircuitException(ContextVirtualCircuitExceptionEvent ev) {
                 System.err.println("ContextVirtualCircuitException: Status: " + ev.getStatus() + ", IP: " + ev.getVirtualCircuit() + ", Source: ");
                 ((CAJContext)ev.getSource()).printInfo(System.err);
+                code.set(ev.getStatus().getValue());
             }
         });
 
@@ -255,13 +254,10 @@ public class IntegrationErrorTest {
 
         Thread.sleep(1000);
 
-        //Container.ExecResult result = softioc.execInContainer("iptables", "-A", "INPUT", "-p", "tcp", "--destination-port", "5065", "-j", "DROP");
         Container.ExecResult result = softioc.execInContainer("ip", "link", "set", "eth0", "down");
         System.out.println("err: " + result.getStderr());
         System.out.println("out: " + result.getStdout());
         System.out.println("exit: " + result.getExitCode());
-
-        //softioc.stop(); // Clean stop not going to cut it... we need to abruptly sever connection...
 
         Thread.sleep(5000);
 
@@ -272,18 +268,11 @@ public class IntegrationErrorTest {
 
         Thread.sleep(5000);
 
-        //softioc.start();
-
-        /*Container.ExecResult result = softioc.execInContainer("caput", "channel3", "1");
-        System.out.println("err: " + result.getStderr());
-        System.out.println("out: " + result.getStdout());
-        System.out.println("exit: " + result.getExitCode());*/
-
-        latch.await(30, TimeUnit.SECONDS);
+        latch.await(10, TimeUnit.SECONDS);
 
         channelManager.removeListener(listener);
 
-        Assert.assertEquals(0, latch.getCount());
+        Assert.assertEquals(60, code.get());
     }
 
     /**
