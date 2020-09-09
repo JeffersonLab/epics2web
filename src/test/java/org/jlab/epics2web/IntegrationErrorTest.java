@@ -26,6 +26,7 @@ import org.testcontainers.containers.wait.strategy.Wait;
 
 import java.io.IOException;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 public class IntegrationErrorTest {
@@ -98,6 +99,14 @@ public class IntegrationErrorTest {
         callbackExecutor.shutdownNow();
     }
 
+    /**
+     * This test simply creates a monitor, triggers a change via caput, then confirms that the monitor callback received
+     * the initialization value (0) plus the caput value (1).
+     *
+     * @throws InterruptedException If a thread is interrupted
+     * @throws IOException If unable to perform IO
+     * @throws CAException If unable to communicate over CA
+     */
     @Test
     public void testBasicMonitor() throws InterruptedException, IOException, CAException {
         final CountDownLatch latch = new CountDownLatch(2);
@@ -118,21 +127,89 @@ public class IntegrationErrorTest {
         Assert.assertEquals(0, latch.getCount());
     }
 
+    /**
+     * This test creates a monitor on a channel hosted on the "softioc", then cleanly shuts the softioc down, waits a
+     * few seconds, and starts it back up (restart IOC simulation), then checks if connection callback detected
+     * disconnect followed by re-connect plus Context Exception callback should detect CA Disconnect code 24.
+     *
+     * @throws IOException If unable to perform IO
+     * @throws InterruptedException If a thread is interrupted
+     * @throws CAException If unable to communicate over CA
+     */
     @Test
-    public void testCAStatus24() throws IOException, InterruptedException, CAException {
-        // We really can't stop, then start container without setting fixed hostname!  Not sure where this test is going... yet!  No docker pause exposed, but perhaps execInContainer clean shutdown or restart of IOC?
+    public void testCleanRestartCode24() throws IOException, InterruptedException, CAException {
+        final CountDownLatch latch = new CountDownLatch(2);
+        final AtomicInteger code = new AtomicInteger();
 
+        PvListener listener = new PvListener() {
+            @Override
+            public void notifyPvInfo(String pv, boolean couldConnect, DBRType type, Integer count, String[] enumLabels) {
+                System.err.println("ConnectionListener: connected: " + couldConnect);
+                if(couldConnect) {
+                    latch.countDown();
+                }
+            }
+
+            @Override
+            public void notifyPvUpdate(String pv, DBR dbr) {
+                // Do nothing - we don't care for this test
+            }
+        };
+
+        // Log any exceptions and check for code 24
+        context.addContextExceptionListener(new ContextExceptionListener() {
+            @Override
+            public void contextException(ContextExceptionEvent ev) {
+                System.err.println("ContextException: " + ev);
+            }
+
+            @Override
+            public void contextVirtualCircuitException(ContextVirtualCircuitExceptionEvent ev) {
+                System.err.println("ContextVirtualCircuitException: Status: " + ev.getStatus() + ", IP: " + ev.getVirtualCircuit() + ", Source: ");
+                ((CAJContext)ev.getSource()).printInfo(System.err);
+
+                System.err.println("status: " + ev.getStatus());
+                System.err.println("value: " + ev.getStatus().getValue()); // We want value, not code;  this is very confusing
+                System.err.println("code: " + ev.getStatus().getStatusCode()); // 192?   What the heck?
+                System.err.println("severity: " + ev.getStatus().getSeverity());
+
+                code.set(ev.getStatus().getValue());
+            }
+        });
+
+        context.addContextMessageListener(new ContextMessageListener() {
+            @Override
+            public void contextMessage(ContextMessageEvent ev) {
+                System.err.println("ContextMessage: " + ev);
+            }
+        });
+
+        channelManager.addPv(listener, "channel2");
+
+        Thread.sleep(1000);
+
+        softioc.stop(); // Clean stop should result in no exceptions at all - connection callback simply informs us when no longer connected!
+
+        Thread.sleep(1000);
+
+        softioc.start();
+
+        latch.await(5, TimeUnit.SECONDS); // If this is too short and earlier sleep calls too long then final ConnectionListener update is not received!
+
+        channelManager.removeListener(listener);
+
+        Assert.assertEquals(0, latch.getCount());
+        Assert.assertEquals(24, code.get());
+    }
+
+    @Test
+    public void testUnresponsiveCode60() throws IOException, InterruptedException, CAException {
         // for status 60 we might be able to use https://www.testcontainers.org/modules/toxiproxy/ for TCP pieces.  We would need something else for UDP, perhaps Linux "tc".
 
         final CountDownLatch latch = new CountDownLatch(2);
 
         PvListener listener = new LatchPvListener(latch);
 
-        channelManager.addPv(listener, "channel2");
-
-        softioc.stop(); // Clean stop appears to result in no exceptions at all - connection callback simply informs us when no longer connected!
-
-        // TODO: We need to catch virtual circuit error and log it's type here
         context.addContextExceptionListener(new ContextExceptionListener() {
             @Override
             public void contextException(ContextExceptionEvent ev) {
@@ -152,16 +229,20 @@ public class IntegrationErrorTest {
             }
         });
 
-        Thread.sleep(5000);
+        channelManager.addPv(listener, "channel3");
+
+        Thread.sleep(1000);
+
+        softioc.stop(); // Clean stop not going to cut it... we need to abruptly sever connection...
+
+        Thread.sleep(1000);
 
         softioc.start();
 
-        // Second execInContainer causes indefinite hang.... weird.  One more issue to troubleshoot; separate test class might be required?
-
-        Container.ExecResult result = softioc.execInContainer("caput", "channel2", "1");
+        /*Container.ExecResult result = softioc.execInContainer("caput", "channel3", "1");
         System.out.println("err: " + result.getStderr());
         System.out.println("out: " + result.getStdout());
-        System.out.println("exit: " + result.getExitCode());
+        System.out.println("exit: " + result.getExitCode());*/
 
         latch.await(5, TimeUnit.SECONDS);
 
