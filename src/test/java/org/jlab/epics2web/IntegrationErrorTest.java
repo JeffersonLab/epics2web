@@ -48,9 +48,6 @@ public class IntegrationErrorTest {
         }
     }
             //.withExposedPorts(5064, 5065)
-            .withClasspathResourceMapping("softioc.db",
-                    "/db/softioc.db",
-                    BindMode.READ_ONLY).withLogConsumer(new Slf4jLogConsumer(LOGGER))
             .withCreateContainerCmdModifier(new Consumer<CreateContainerCmd>() {
                 @Override
                 public void accept(CreateContainerCmd cmd) {
@@ -60,7 +57,11 @@ public class IntegrationErrorTest {
                             .withTty(true);
                 }
             })
-            .waitingFor(Wait.forLogMessage("iocRun: All initialization complete", 1));
+            .withLogConsumer(new Slf4jLogConsumer(LOGGER))
+            .waitingFor(Wait.forLogMessage("iocRun: All initialization complete", 1))
+            //.withClasspathResourceMapping("softioc.db", "/db/softioc.db", BindMode.READ_ONLY)
+            .withFileSystemBind("examples/softioc-db", "/db", BindMode.READ_ONLY);
+
 
     @BeforeClass
     public static void setUp() throws CAException {
