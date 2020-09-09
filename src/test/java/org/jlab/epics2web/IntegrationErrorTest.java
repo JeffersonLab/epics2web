@@ -188,7 +188,7 @@ public class IntegrationErrorTest {
 
         Thread.sleep(1000);
 
-        softioc.stop(); // Clean stop should result in no exceptions at all - connection callback simply informs us when no longer connected!
+        softioc.stop(); // Clean stop should result in status 24 plus connection callback informs us when no longer connected!
 
         Thread.sleep(1000);
 
