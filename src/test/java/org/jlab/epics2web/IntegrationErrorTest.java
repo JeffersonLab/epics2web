@@ -54,6 +54,7 @@ public class IntegrationErrorTest {
                 @Override
                 public void accept(CreateContainerCmd cmd) {
                     cmd
+                            .withPrivileged(true) // not sure what is the non-deprecated way to do this, not found in docs...
                             .withHostName("softioc") // Fixed hostname so we can stop/start and check if monitors automatically recover
                             .withUser("root")
                             .withAttachStdin(true)
@@ -79,10 +80,14 @@ public class IntegrationErrorTest {
         // Set EPICS_CA_ADDR_LIST
         DefaultConfiguration config = ContextFactory.getDefault();
         config.setAttribute("addr_list", hostname);
+        config.setAttribute("beacon_period", "0.5");
+        config.setAttribute("connection_timeout", "0.5");
 
         ContextFactory factory = new ContextFactory(config);
 
         context = factory.newContext();
+
+        context.printInfo(System.err);
 
         timeoutExecutor = Executors.newScheduledThreadPool(1, new CustomPrefixThreadFactory("CA-Timeout-"));
         callbackExecutor = Executors.newCachedThreadPool(new CustomPrefixThreadFactory("Callback-"));
@@ -234,7 +239,8 @@ public class IntegrationErrorTest {
 
             @Override
             public void contextVirtualCircuitException(ContextVirtualCircuitExceptionEvent ev) {
-                System.out.println("ContextVirtualCircuitException: " + ev);
+                System.err.println("ContextVirtualCircuitException: Status: " + ev.getStatus() + ", IP: " + ev.getVirtualCircuit() + ", Source: ");
+                ((CAJContext)ev.getSource()).printInfo(System.err);
             }
         });
 
@@ -249,24 +255,31 @@ public class IntegrationErrorTest {
 
         Thread.sleep(1000);
 
-        Container.ExecResult result = softioc.execInContainer("iptables", "-A", "INPUT", "-p", "tcp", "--destination-port", "5065", "-j", "DROP");
-        //Container.ExecResult result = softioc.execInContainer("ip", "link", "set", "eth0", "down");
+        //Container.ExecResult result = softioc.execInContainer("iptables", "-A", "INPUT", "-p", "tcp", "--destination-port", "5065", "-j", "DROP");
+        Container.ExecResult result = softioc.execInContainer("ip", "link", "set", "eth0", "down");
         System.out.println("err: " + result.getStderr());
         System.out.println("out: " + result.getStdout());
         System.out.println("exit: " + result.getExitCode());
 
-        softioc.stop(); // Clean stop not going to cut it... we need to abruptly sever connection...
+        //softioc.stop(); // Clean stop not going to cut it... we need to abruptly sever connection...
 
-        Thread.sleep(1000);
+        Thread.sleep(5000);
 
-        softioc.start();
+        result = softioc.execInContainer("ip", "link", "set", "eth0", "up");
+        System.out.println("err: " + result.getStderr());
+        System.out.println("out: " + result.getStdout());
+        System.out.println("exit: " + result.getExitCode());
+
+        Thread.sleep(5000);
+
+        //softioc.start();
 
         /*Container.ExecResult result = softioc.execInContainer("caput", "channel3", "1");
         System.out.println("err: " + result.getStderr());
         System.out.println("out: " + result.getStdout());
         System.out.println("exit: " + result.getExitCode());*/
 
-        latch.await(5, TimeUnit.SECONDS);
+        latch.await(30, TimeUnit.SECONDS);
 
         channelManager.removeListener(listener);
 
