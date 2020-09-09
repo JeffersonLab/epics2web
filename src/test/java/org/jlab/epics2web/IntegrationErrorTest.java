@@ -210,6 +210,10 @@ public class IntegrationErrorTest {
 
         PvListener listener = new LatchPvListener(latch);
 
+        // TODO: Looks like lots of ways connections fail since so many different ports are being used to communicate over both UDP and TCP - lots of combinations of failure modes
+        // https://epics.anl.gov/docs/APS2014/05-CA-Concepts.pdf
+        // https://epics-controls.org/resources-and-support/documents/ca/
+
         // TODO: explore CAJ_DO_NOT_SHARE_CHANNELS option
         //context.setDoNotShareChannels(true);
 
