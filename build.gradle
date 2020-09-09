@@ -35,6 +35,7 @@ dependencies {
 
     testCompile "org.testcontainers:testcontainers:1.14.3"
     testCompile 'org.slf4j:slf4j-simple:1.6.1'
+    testCompile "org.testcontainers:toxiproxy:1.14.3"
 }
 
 test {

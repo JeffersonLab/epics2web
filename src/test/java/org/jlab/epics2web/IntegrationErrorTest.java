@@ -11,18 +11,13 @@ import gov.aps.jca.event.*;
 import org.jlab.epics2web.epics.ChannelManager;
 import org.jlab.epics2web.epics.ContextFactory;
 import org.jlab.epics2web.epics.PvListener;
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.testcontainers.containers.BindMode;
-import org.testcontainers.containers.Container;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.InternetProtocol;
+import org.testcontainers.containers.*;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
 import java.util.concurrent.*;
@@ -37,6 +32,14 @@ public class IntegrationErrorTest {
 
     private static Logger LOGGER = LoggerFactory.getLogger(IntegrationErrorTest.class);
 
+    @ClassRule
+    public static Network network = Network.newNetwork();
+
+    @ClassRule
+    public static ToxiproxyContainer toxiproxy = new ToxiproxyContainer("shopify/toxiproxy:2.1.0")
+            .withNetwork(network)
+            .withNetworkAliases("toxinet");
+
     public static GenericContainer softioc = new GenericContainer("slominskir/softioc") {
         {
             this.addFixedExposedPort(5064, 5064, InternetProtocol.TCP);
@@ -46,11 +49,13 @@ public class IntegrationErrorTest {
         }
     }
             //.withExposedPorts(5064, 5065)
+            .withNetwork(network)
             .withCreateContainerCmdModifier(new Consumer<CreateContainerCmd>() {
                 @Override
                 public void accept(CreateContainerCmd cmd) {
                     cmd
                             .withHostName("softioc") // Fixed hostname so we can stop/start and check if monitors automatically recover
+                            .withUser("root")
                             .withAttachStdin(true)
                             .withStdinOpen(true)
                             .withTty(true);
@@ -61,6 +66,8 @@ public class IntegrationErrorTest {
             //.withClasspathResourceMapping("softioc.db", "/db/softioc.db", BindMode.READ_ONLY)
             .withFileSystemBind("examples/softioc-db", "/db", BindMode.READ_ONLY);
 
+
+    final ToxiproxyContainer.ContainerProxy softproxy = toxiproxy.getProxy(softioc, 5064); // This isn't going to work - we need proxy to handle 2 TCP and 2 UDP ports!
 
     @BeforeClass
     public static void setUp() throws CAException {
@@ -241,6 +248,11 @@ public class IntegrationErrorTest {
         channelManager.addPv(listener, "channel3");
 
         Thread.sleep(1000);
+
+        Container.ExecResult result = softioc.execInContainer("ip", "link", "set", "eth0", "down");
+        System.out.println("err: " + result.getStderr());
+        System.out.println("out: " + result.getStdout());
+        System.out.println("exit: " + result.getExitCode());
 
         softioc.stop(); // Clean stop not going to cut it... we need to abruptly sever connection...
 
