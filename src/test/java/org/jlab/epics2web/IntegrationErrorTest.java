@@ -249,7 +249,8 @@ public class IntegrationErrorTest {
 
         Thread.sleep(1000);
 
-        Container.ExecResult result = softioc.execInContainer("ip", "link", "set", "eth0", "down");
+        Container.ExecResult result = softioc.execInContainer("iptables", "-A", "INPUT", "-p", "tcp", "--destination-port", "5065", "-j", "DROP");
+        //Container.ExecResult result = softioc.execInContainer("ip", "link", "set", "eth0", "down");
         System.out.println("err: " + result.getStderr());
         System.out.println("out: " + result.getStdout());
         System.out.println("exit: " + result.getExitCode());
