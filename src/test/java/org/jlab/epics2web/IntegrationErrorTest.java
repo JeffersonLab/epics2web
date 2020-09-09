@@ -1,6 +1,5 @@
 package org.jlab.epics2web;
 
-import com.cosylab.epics.caj.CAJChannel;
 import com.cosylab.epics.caj.CAJContext;
 import com.github.dockerjava.api.command.CreateContainerCmd;
 import gov.aps.jca.CAException;
@@ -8,8 +7,7 @@ import gov.aps.jca.configuration.DefaultConfiguration;
 import gov.aps.jca.dbr.DBR;
 import gov.aps.jca.dbr.DBRType;
 import gov.aps.jca.dbr.DBR_Double;
-import gov.aps.jca.event.ConnectionEvent;
-import gov.aps.jca.event.ConnectionListener;
+import gov.aps.jca.event.*;
 import org.jlab.epics2web.epics.ChannelManager;
 import org.jlab.epics2web.epics.ContextFactory;
 import org.jlab.epics2web.epics.PvListener;
@@ -28,7 +26,6 @@ import org.testcontainers.containers.wait.strategy.Wait;
 
 import java.io.IOException;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 public class IntegrationErrorTest {
@@ -52,6 +49,7 @@ public class IntegrationErrorTest {
                 @Override
                 public void accept(CreateContainerCmd cmd) {
                     cmd
+                            .withHostName("softioc") // Fixed hostname so we can stop/start and check if monitors automatically recover
                             .withAttachStdin(true)
                             .withStdinOpen(true)
                             .withTty(true);
@@ -132,18 +130,44 @@ public class IntegrationErrorTest {
 
         channelManager.addPv(listener, "channel2");
 
+        softioc.stop(); // Clean stop appears to result in no exceptions at all - connection callback simply informs us when no longer connected!
+
+        // TODO: We need to catch virtual circuit error and log it's type here
+        context.addContextExceptionListener(new ContextExceptionListener() {
+            @Override
+            public void contextException(ContextExceptionEvent ev) {
+                System.err.println("ContextException: " + ev);
+            }
+
+            @Override
+            public void contextVirtualCircuitException(ContextVirtualCircuitExceptionEvent ev) {
+                System.out.println("ContextVirtualCircuitException: " + ev);
+            }
+        });
+
+        context.addContextMessageListener(new ContextMessageListener() {
+            @Override
+            public void contextMessage(ContextMessageEvent ev) {
+                System.err.println("ContextMessage: " + ev);
+            }
+        });
+
+        Thread.sleep(5000);
+
+        softioc.start();
+
         // Second execInContainer causes indefinite hang.... weird.  One more issue to troubleshoot; separate test class might be required?
 
-        /*Container.ExecResult result = softioc.execInContainer("caput", "channel2", "1");
+        Container.ExecResult result = softioc.execInContainer("caput", "channel2", "1");
         System.out.println("err: " + result.getStderr());
         System.out.println("out: " + result.getStdout());
-        System.out.println("exit: " + result.getExitCode());*/
+        System.out.println("exit: " + result.getExitCode());
 
         latch.await(5, TimeUnit.SECONDS);
 
         channelManager.removeListener(listener);
 
-        //Assert.assertEquals(0, latch.getCount());
+        Assert.assertEquals(0, latch.getCount());
     }
 
     /**
