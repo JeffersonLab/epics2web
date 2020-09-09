@@ -210,6 +210,11 @@ public class IntegrationErrorTest {
 
         PvListener listener = new LatchPvListener(latch);
 
+        // TODO: explore CAJ_DO_NOT_SHARE_CHANNELS option
+        //context.setDoNotShareChannels(true);
+
+        // TODO: explore beacon period and connection timeout - set to small value to speed up test?
+
         context.addContextExceptionListener(new ContextExceptionListener() {
             @Override
             public void contextException(ContextExceptionEvent ev) {
