@@ -1,8 +1,10 @@
 package org.jlab.epics2web;
 
+import com.cosylab.epics.caj.CAJChannel;
 import com.cosylab.epics.caj.CAJContext;
 import com.github.dockerjava.api.command.CreateContainerCmd;
 import gov.aps.jca.CAException;
+import gov.aps.jca.TimeoutException;
 import gov.aps.jca.configuration.DefaultConfiguration;
 import gov.aps.jca.dbr.DBR;
 import gov.aps.jca.dbr.DBRType;
@@ -19,6 +21,7 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -273,6 +276,84 @@ public class IntegrationErrorTest {
         channelManager.removeListener(listener);
 
         Assert.assertEquals(60, code.get());
+    }
+
+    /**
+     * This test creates a monitor on a channel then performs a get request on that same channel.  Note that the
+     * CAJChannel object is shared via internal JCA/CAJ lookup (CAJContext.createChannel returns existing CAJChannel if
+     * it already exists for a given channel name and priority).
+     *
+     * @throws IOException If unable to perform IO
+     * @throws InterruptedException If a thread is interrupted
+     * @throws CAException If unable to communicate over CA
+     */
+    @Test
+    public void testSharedChannel() throws IOException, InterruptedException, CAException, TimeoutException {
+        final CountDownLatch latch = new CountDownLatch(2);
+        final AtomicInteger code = new AtomicInteger();
+
+        PvListener listener = new LatchPvListener(latch);
+
+        context.addContextExceptionListener(new ContextExceptionListener() {
+            @Override
+            public void contextException(ContextExceptionEvent ev) {
+                System.err.println("ContextException: " + ev);
+            }
+
+            @Override
+            public void contextVirtualCircuitException(ContextVirtualCircuitExceptionEvent ev) {
+                System.err.println("ContextVirtualCircuitException: Status: " + ev.getStatus() + ", IP: " + ev.getVirtualCircuit() + ", Source: ");
+                ((CAJContext)ev.getSource()).printInfo(System.err);
+                code.set(ev.getStatus().getValue());
+            }
+        });
+
+        context.addContextMessageListener(new ContextMessageListener() {
+            @Override
+            public void contextMessage(ContextMessageEvent ev) {
+                System.err.println("ContextMessage: " + ev);
+            }
+        });
+
+        channelManager.addPv(listener, "channel3");
+
+        Thread.sleep(1000);
+
+        try {
+            List<DBR> valueList = channelManager.get(new String[]{"channel3"}, false);
+
+            System.out.println("Get Value: " + ((DBR_Double)valueList.get(0)).getDoubleValue()[0]);
+        } catch(gov.aps.jca.TimeoutException e) {
+            e.printStackTrace();
+        }
+
+        CAJChannel channel = (CAJChannel)context.createChannel("channel3", new ConnectionListener() {
+            @Override
+            public void connectionChanged(ConnectionEvent ev) {
+                System.out.println("Custom ConnectionListener: Connected: " + ev.isConnected());
+            }
+        });
+
+        context.pendIO(1000);
+
+        double value = ((DBR_Double)channel.get()).getDoubleValue()[0];
+
+        context.pendIO(1000);
+
+        channel.destroyChannel(true); // Force ignores reference count and destroys channel even if others are using it!
+
+        Thread.sleep(1000);
+
+        latch.await(5, TimeUnit.SECONDS);
+
+
+
+
+        IllegalStateException e = Assert.assertThrows(IllegalStateException.class, () -> channelManager.removeListener(listener));
+
+        Assert.assertEquals("Channel already destroyed.", e.getMessage());
+
+        Thread.sleep(1000);
     }
 
     /**
