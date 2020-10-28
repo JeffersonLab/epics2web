@@ -1,17 +1,18 @@
+// WARNING: You must use Java 8 with Gradle 5 (DO NOT USE Java 9+ or Gradle 6+)
+
 plugins {
     id 'war'
     id "com.eriwen.gradle.css" version "2.14.0"
     id "eu.butter.gradle.js" version "2.15.1"
+    // id "org.padler.gradle.minify" version "1.7.0" // TODO: Replace above plugins with this one as above don't work with Gradle 6
 }
 
 description = "EPICS to web gateway"
 group 'org.jlab'
-version = '1.9.3'
-
-def junitJupiterVersion = '5.4.2'
+version = '1.10.0'
 
 ext {
-    releaseDate = 'March 11 2020'
+    releaseDate = 'October 28 2020'
     productionRelease = 'true'
 }
 
@@ -19,16 +20,19 @@ repositories {
     mavenCentral()
 }
 
-compileJava   {
-    sourceCompatibility = '1.8'
-    targetCompatibility = '1.8'
+/*compileJava { // This is only needed to cross-compile using Java 11 targeting Java 8; invalid if you use Java 8 to begin with!
+    options.compilerArgs.addAll(['--release', '8'])
+}*/
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
 }
 
 dependencies {
     compile 'javax.servlet:jstl:1.2'
     implementation 'org.glassfish:javax.json:1.1.4'
-    implementation 'org.epics:jca:2.3.6'
-    implementation 'org.epics:caj:1.1.15'
+    implementation files('lib/jca-2.4.6.jar')
+    //implementation 'org.epics:jca:2.4.6' // Only works with Java 11 runtime
     providedCompile 'javax:javaee-api:7.0'
 
     testImplementation 'junit:junit:4.13'
