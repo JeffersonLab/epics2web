@@ -191,7 +191,7 @@ git clone https://github.com/JeffersonLab/epics2web
 cd epics2web
 gradlew war
 ```
-**Note**: Java 8 is required to build and run epics2web.   If you want to use Java 11 you could make it work, but you'll need to use the Java 11 compiled version of dependencies (JCA).  Gradle 5 is used by the gradlew wrapper script; Gradle 6 does is not supported due to plugin conflict.
+**Note**: Java 8 is required to build and run epics2web.   If you want to use Java 11 you could make it work, but you'll need to use the Java 11 compiled version of dependencies (JCA).  Gradle 5 is used by the gradlew wrapper script; Gradle 6 is not supported due to plugin conflict.
 
 ## Configure
 
