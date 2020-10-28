@@ -13,9 +13,9 @@ RUN git clone https://github.com/JeffersonLab/epics2web \
           && export OPTIONAL_CERT_ARG=-Djavax.net.ssl.trustStore=$JAVA_HOME/jre/lib/security/cacerts \
           ; fi \
     && cd epics2web \
-    && gradle build $OPTIONAL_CERT_ARG
+    && gradle build $OPTIONAL_CERT_ARG -x test
 
 
-FROM tomcat:9.0.37-jdk11-adoptopenjdk-hotspot
+FROM tomcat:9.0.39-jdk8-adoptopenjdk-hotspot
 
 COPY --from=builder /epics2web/build/libs /usr/local/tomcat/webapps
