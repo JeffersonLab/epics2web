@@ -155,13 +155,15 @@ Convenience function for pong event.  If more than one callback is needed use Cl
 - *pong* - This event is triggered upon a pong message
 
 #### Datatypes
-- DBR_DOUBLE
-- DBR_FLOAT
-- DBR_INT
-- DBR_SHORT
-- DBR_BYTE
+- DBR_DOUBLE (64-bit)
+- DBR_FLOAT (32-bit)
+- DBR_INT (32-bit - EPICS DBR_LONG)
+- DBR_SHORT (16-bit - EPICS DBR_INT/DBR_SHORT)
+- DBR_BYTE (8-bit - EPICS DBR_CHAR)
 - DBR_STRING
-- DBR_ENUM
+- DBR_ENUM (This is the only compound type: includes both the integer value and the String label)
+
+**Note:** EPICS Compound types are not supported (DBR_STS, DBR_TIME, DBR_GR, and DBR_CTRL).
 
 #### Options
 | Name | Description | Default |
