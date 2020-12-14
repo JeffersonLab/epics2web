@@ -9,7 +9,7 @@ plugins {
 
 description = "EPICS to web gateway"
 group 'org.jlab'
-version = '1.11.0'
+version '1.11.0'
 
 ext {
     releaseDate = 'December 14 2020'
@@ -55,7 +55,7 @@ war {
     archiveName 'epics2web.war'
     filesMatching('WEB-INF/web.xml') {
         filter {
-            String line -> line.replaceAll("@VERSION@", version)
+            String line -> line.replaceAll("@VERSION@", project.version)
         }
         filter {
             String line -> line.replaceAll("@RELEASE_DATE@", releaseDate)
