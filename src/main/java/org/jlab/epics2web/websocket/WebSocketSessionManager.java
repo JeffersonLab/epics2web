@@ -16,13 +16,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.json.Json;
-import javax.json.JsonArray;
-import javax.json.JsonArrayBuilder;
-import javax.json.JsonObject;
-import javax.json.JsonObjectBuilder;
-import javax.json.JsonString;
-import javax.json.JsonValue;
+import javax.json.*;
 import javax.websocket.Session;
 import org.jlab.epics2web.Application;
 import org.jlab.epics2web.epics.PvListener;
@@ -35,6 +29,8 @@ import org.jlab.epics2web.epics.PvListener;
 public class WebSocketSessionManager {
 
     private static final Logger LOGGER = Logger.getLogger(WebSocketSessionManager.class.getName());
+
+    private final JsonBuilderFactory factory = Json.createBuilderFactory(null);
 
     /*ConcurrentHashMap provides thread safety on map of listeners*/
     final Map<Session, WebSocketSessionMonitor> listenerMap = new ConcurrentHashMap<>();
@@ -242,12 +238,12 @@ public class WebSocketSessionManager {
     public void sendInfo(Session session, String pv, boolean couldConnect, DBRType type,
             Integer count,
             String[] enumLabels) {
-        JsonObjectBuilder objBuilder
-                = Json.createObjectBuilder().add("type", "info").add(
-                        "pv", pv).add("connected", couldConnect);
+        JsonObjectBuilder builder = factory.createObjectBuilder();
+
+        builder.add("type", "info").add("pv", pv).add("connected", couldConnect);
 
         if (couldConnect) {
-            objBuilder.add("datatype",
+            builder.add("datatype",
                     type.getName()).add("count", count);
 
             if (enumLabels != null) {
@@ -256,11 +252,11 @@ public class WebSocketSessionManager {
                     arrBuilder.add(label);
                 }
 
-                objBuilder.add("enum-labels", arrBuilder);
+                builder.add("enum-labels", arrBuilder);
             }
         }
 
-        JsonObject obj = objBuilder.build();
+        JsonObject obj = builder.build();
         String msg = obj.toString();
         send(session, pv, msg);
     }
@@ -273,7 +269,9 @@ public class WebSocketSessionManager {
      * @param dbr The EPICS DataBaseRecord
      */
     public void sendUpdate(Session session, String pv, DBR dbr) {
-        JsonObjectBuilder builder = Json.createObjectBuilder().add("type", "update").add(
+        JsonObjectBuilder builder = factory.createObjectBuilder();
+
+        builder.add("type", "update").add(
                 "pv", pv);
         Application.channelManager.addValueToJSON(builder, dbr);
         JsonObject obj = builder.build();
