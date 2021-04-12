@@ -209,8 +209,9 @@ Image hosted on [DockerHub](https://hub.docker.com/r/slominskir/epics2web)
 Now navigate to http://localhost:8080/epics2web/
 
 ## See Also
-- [PV Monitor Runchart](https://github.com/JeffersonLab/runchart)
 - [Web Extensible Display Manager (wedm)](https://github.com/JeffersonLab/wedm)
+- [Web Archive Viewer and Expositor (WAVE)](https://github.com/JeffersonLab/wave)
+- [PV Monitor Runchart](https://github.com/JeffersonLab/runchart)
 - [Similar Projects](https://github.com/JeffersonLab/epics2web/wiki/Similar-Projects)
 - [Technical Notes](https://github.com/JeffersonLab/epics2web/wiki/Technical-Notes)
 - [Testing Suite](https://github.com/JeffersonLab/jca-test-suite)
