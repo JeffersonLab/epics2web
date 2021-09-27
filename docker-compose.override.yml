@@ -1,0 +1,6 @@
+---
+version: '3.8'
+
+services:
+  epics2web:
+    image: slominskir/epics2web:1.12.0

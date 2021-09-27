@@ -18,11 +18,6 @@ services:
       - ./examples/softioc-scripts:/scripts
 
   epics2web:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        - CUSTOM_CRT_URL=http://pki.jlab.org/JLabCA.crt
     hostname: epics2web
     container_name: epics2web
     environment:
