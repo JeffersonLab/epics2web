@@ -268,7 +268,13 @@ class ChannelMonitor implements Closeable {
             // Only create monitor on first connect, afterwards reconnect uses same old monitor
             synchronized (this) {
                 if (monitor == null) {
-                    monitor = channel.addMonitor(channel.getFieldType(), 1, Monitor.VALUE, new ChannelMonitorListener());
+                    // We generally don't handle arrays,
+                    // except for BYTE[], where we assume a "long string"
+                    int count = 1;
+                    if (channel.getFieldType().isBYTE() &&
+                        channel.getElementCount() > 1)
+                        count = channel.getElementCount();
+                    monitor = channel.addMonitor(channel.getFieldType(), count, Monitor.VALUE, new ChannelMonitorListener());
                     context.flushIO();
                 }
             }
