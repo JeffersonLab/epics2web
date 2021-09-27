@@ -1,4 +1,4 @@
-# epics2web
+# epics2web [![Docker](https://img.shields.io/docker/v/slominskir/epics2web?sort=semver&label=DockerHub)](https://hub.docker.com/r/slominskir/epics2web)
 A gateway server and accompanying JavaScript client API to monitor [EPICS](http://www.aps.anl.gov/epics/) Channel Access over Web Sockets.  A caget-like JSON web service endpoint is also provided.
 
 ---
