@@ -1,4 +1,4 @@
-# epics2web [![Build Status](https://travis-ci.com/JeffersonLab/epics2web.svg?branch=master)](https://travis-ci.com/JeffersonLab/epics2web)
+# epics2web
 A gateway server and accompanying JavaScript client API to monitor [EPICS](http://www.aps.anl.gov/epics/) Channel Access over Web Sockets.  A caget-like JSON web service endpoint is also provided.
 
 ---
