@@ -28,3 +28,16 @@ record(ao,"channel6") {
         field(HHSV,MAJOR)
         field(HIHI,1)
 }
+record(calc,"counter_CHBCRYO") {
+  field(SCAN, ".2 second")
+  field(CALC, "(A+1)%17")
+  field(INPA, "counter_CHBCRYO.VAL")
+  field(FLNK, "CHBCRYO.PROC")
+  field(VAL, "0")
+}
+record(calc,"CHBCRYO") {
+  field(SCAN, "Passive")
+  field(CALC, "(A<=8)*(2**A)+(A>8)*(2**(17-A))")
+  field(INPA, "counter_CHBCRYO.VAL")
+  field(VAL, "0")
+}
