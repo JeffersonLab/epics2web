@@ -2,6 +2,7 @@
 A gateway server and accompanying JavaScript client API to monitor [EPICS](http://www.aps.anl.gov/epics/) Channel Access over Web Sockets.  A caget-like JSON web service endpoint is also provided.
 
 ---
+- [Quick Start with Compose](https://github.com/JeffersonLab/epics2web#quick-start-with-compose)
 - [API](https://github.com/JeffersonLab/epics2web#api)
 - [Install](https://github.com/JeffersonLab/epics2web#build)
 - [Build](https://github.com/JeffersonLab/epics2web#build)
@@ -21,6 +22,24 @@ A gateway server and accompanying JavaScript client API to monitor [EPICS](http:
 
 ### Monitor Console Page
 ![Console](https://github.com/JeffersonLab/epics2web/raw/master/doc/img/Console.png?raw=true "Console")
+
+## Quick Start with Compose 
+1. Grab project
+```
+git clone https://github.com/JeffersonLab/epics2web
+cd epics2web
+```
+2. Launch Docker
+```
+docker-compose up
+```
+3. Monitor test PV via web browser   
+
+http://localhost:8080/epics2web/test-camonitor
+
+PV name: `CHBCRYO`
+
+**Note**: The docker-compose up command implicitly reads both _docker-compose.yml_ and _docker-compose.override.yml_.
 
 ## API
 
