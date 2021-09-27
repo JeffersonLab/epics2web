@@ -48,11 +48,11 @@ public class IntegrationErrorTest {
     }
             //.withExposedPorts(5064, 5065)
             .withNetwork(network)
+            .withPrivilegedMode(true)
             .withCreateContainerCmdModifier(new Consumer<CreateContainerCmd>() {
                 @Override
                 public void accept(CreateContainerCmd cmd) {
                     cmd
-                            .withPrivileged(true) // not sure what is the non-deprecated way to do this, not found in docs...
                             .withHostName("softioc") // Fixed hostname so we can stop/start and check if monitors automatically recover
                             .withUser("root")
                             .withAttachStdin(true)
