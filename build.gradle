@@ -37,7 +37,7 @@ dependencies {
 
     testImplementation 'junit:junit:4.13'
 
-    testCompile "org.testcontainers:testcontainers:1.14.3"
+    testCompile "org.testcontainers:testcontainers:1.16.0"
     testCompile 'org.slf4j:slf4j-simple:1.6.1'
 }
 
