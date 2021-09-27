@@ -111,8 +111,21 @@ public class ChannelManager {
                 short value = ((gov.aps.jca.dbr.ENUM) dbr).getEnumValue()[0];
                 builder.add("value", value);
             } else if (dbr.isBYTE()) {
-                byte value = ((gov.aps.jca.dbr.BYTE) dbr).getByteValue()[0];
-                builder.add("value", value);
+                byte[] value = ((gov.aps.jca.dbr.BYTE) dbr).getByteValue();
+                int len = value.length;
+                if (len > 1) {
+                    // epics2web generally doesn't handle arrays,
+                    // but for BYTE[] assume that data is really "long string".
+                    // Text ends at first '\0' or end of array
+                    for (int i=0; i<len; ++i)
+                        if (value[i] == 0) {
+                            len = i;
+                            break;
+                        }
+                    builder.add("value", new String(value, 0, len, "UTF-8"));
+                }
+                else
+                    builder.add("value", value[0]);
             } else {
                 String value = ((gov.aps.jca.dbr.STRING) dbr).getStringValue()[0];
                 builder.add("value", value);
