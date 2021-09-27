@@ -221,11 +221,14 @@ This application uses the [Java Channel Access](https://github.com/epics-base/jc
 
 ## Docker
 ```
-docker-compose up
+docker pull slominskir/epics2web
 ```
 Image hosted on [DockerHub](https://hub.docker.com/r/slominskir/epics2web)
 
-Now navigate to http://localhost:8080/epics2web/
+**Note**: When developing the app you can mount the build artifact into the container by substituting the docker-compose up command with:
+```
+docker-compose -f docker-compose.yml -f docker-compose-dev.yml up
+```
 
 ## See Also
 - [Web Extensible Display Manager (wedm)](https://github.com/JeffersonLab/wedm)
