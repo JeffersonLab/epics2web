@@ -1,4 +1,4 @@
-FROM gradle:5.6.4-jdk8 as builder
+FROM gradle:7.4-jdk17 as builder
 
 ARG CUSTOM_CRT_URL
 
