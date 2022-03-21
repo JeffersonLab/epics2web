@@ -40,9 +40,9 @@ configurations {
 }
 
 dependencies {
-    providedCompile 'javax.servlet:jstl:1.2'
-    implementation 'org.glassfish:javax.json:1.1.4'
-    implementation files('lib/jca-2.4.6.jar')
+    implementation 'javax.servlet:jstl:1.2',
+                   'org.glassfish:javax.json:1.1.4',
+                   files('lib/jca-2.4.6.jar')
     //implementation 'org.epics:jca:2.4.6' // Only works with Java 11 runtime
     providedCompile 'javax:javaee-api:7.0'
 
