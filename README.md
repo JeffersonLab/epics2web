@@ -1,6 +1,8 @@
 # epics2web [![Java CI with Gradle](https://github.com/JeffersonLab/epics2web/actions/workflows/gradle.yml/badge.svg)](https://github.com/JeffersonLab/epics2web/actions/workflows/gradle.yml) [![Docker](https://img.shields.io/docker/v/slominskir/epics2web?sort=semver&label=DockerHub)](https://hub.docker.com/r/slominskir/epics2web)
 A gateway server and accompanying JavaScript client API to monitor [EPICS](http://www.aps.anl.gov/epics/) Channel Access over Web Sockets.  A caget-like JSON web service endpoint is also provided.
 
+![MonitorTest](https://github.com/JeffersonLab/epics2web/raw/main/doc/img/MonitorTest.png?raw=true "MonitorTest")
+
 ---
 - [Quick Start with Compose](https://github.com/JeffersonLab/epics2web#quick-start-with-compose)
 - [API](https://github.com/JeffersonLab/epics2web#api)
@@ -10,18 +12,6 @@ A gateway server and accompanying JavaScript client API to monitor [EPICS](http:
 - [Docker](https://github.com/JeffersonLab/epics2web#docker)
 - [See Also](https://github.com/JeffersonLab/epics2web#see-also)
 ---
-
-### Overview Page
-![Overview](https://github.com/JeffersonLab/epics2web/raw/master/doc/img/Overview.png?raw=true "Overview")
-
-### Get Test Page
-![GetTest](https://github.com/JeffersonLab/epics2web/raw/master/doc/img/GetTest.png?raw=true "GetTest")
-
-### Monitor Test Page
-![MonitorTest](https://github.com/JeffersonLab/epics2web/raw/master/doc/img/MonitorTest.png?raw=true "MonitorTest")
-
-### Monitor Console Page
-![Console](https://github.com/JeffersonLab/epics2web/raw/master/doc/img/Console.png?raw=true "Console")
 
 ## Quick Start with Compose 
 1. Grab project
