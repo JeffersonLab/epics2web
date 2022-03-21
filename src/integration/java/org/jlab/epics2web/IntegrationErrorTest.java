@@ -39,8 +39,8 @@ public class IntegrationErrorTest {
     public static GenericContainer<?> softioc = new FixedHostPortGenericContainer<>("slominskir/softioc:1.1.0")
             .withFixedExposedPort(5064, 5064, InternetProtocol.TCP)
             .withFixedExposedPort(5065, 5065, InternetProtocol.TCP)
-            //.withFixedExposedPort(5064, 5064, InternetProtocol.UDP)
-            //.withFixedExposedPort(5065, 5065, InternetProtocol.UDP)
+            .withFixedExposedPort(5064, 5064, InternetProtocol.UDP)
+            .withFixedExposedPort(5065, 5065, InternetProtocol.UDP)
             .withNetwork(network)
             .withPrivilegedMode(true)
             .withCreateContainerCmdModifier(cmd -> cmd
