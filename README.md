@@ -27,7 +27,7 @@ docker-compose up
 
 http://localhost:8080/epics2web/test-camonitor
 
-PV name: `CHBCRYO`
+PV name: `HELLO`
 
 **Note**: The docker-compose up command implicitly reads both _docker-compose.yml_ and _docker-compose.override.yml_.
 
