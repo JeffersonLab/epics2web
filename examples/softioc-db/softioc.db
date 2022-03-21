@@ -8,36 +8,16 @@ record(ao,"channel2") {
         field(HHSV,MAJOR)
         field(HIHI,1)
 }
-record(ao,"channel3") {
-        field(DTYP,"Soft Channel")
-        field(HHSV,MAJOR)
-        field(HIHI,1)
-}
-record(ao,"channel4") {
-        field(DTYP,"Soft Channel")
-        field(HHSV,MAJOR)
-        field(HIHI,1)
-}
-record(ao,"channel5") {
-        field(DTYP,"Soft Channel")
-        field(HHSV,MAJOR)
-        field(HIHI,1)
-}
-record(ao,"channel6") {
-        field(DTYP,"Soft Channel")
-        field(HHSV,MAJOR)
-        field(HIHI,1)
-}
-record(calc,"counter_CHBCRYO") {
+record(calc,"counter_HELLO") {
   field(SCAN, ".2 second")
   field(CALC, "(A+1)%17")
-  field(INPA, "counter_CHBCRYO.VAL")
-  field(FLNK, "CHBCRYO.PROC")
+  field(INPA, "counter_HELLO.VAL")
+  field(FLNK, "HELLO.PROC")
   field(VAL, "0")
 }
-record(calc,"CHBCRYO") {
+record(calc,"HELLO") {
   field(SCAN, "Passive")
   field(CALC, "(A<=8)*(2**A)+(A>8)*(2**(17-A))")
-  field(INPA, "counter_CHBCRYO.VAL")
+  field(INPA, "counter_HELLO.VAL")
   field(VAL, "0")
 }
