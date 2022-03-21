@@ -1,0 +1,15 @@
+services:
+  softioc:
+    extends:
+      file: docker-compose.yml
+      service: softioc
+
+  epics2web:
+    extends:
+      file: docker-compose.yml
+      service: epics2web
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - CUSTOM_CRT_URL=http://pki.jlab.org/JLabCA.crt

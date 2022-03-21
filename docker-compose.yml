@@ -1,21 +1,8 @@
----
-version: '3.8'
-
 services:
   softioc:
-    image: slominskir/softioc:1.1.0
-    tty: true
-    stdin_open: true
-    hostname: softioc
-    container_name: softioc
-    ports:
-      - "5064:5064/tcp"
-      - "5065:5065/tcp"
-      - "5064:5064/udp"
-      - "5065:5065/udp"
-    volumes:
-      - ./examples/softioc-db:/db
-      - ./examples/softioc-scripts:/scripts
+    extends:
+      file: deps.yml
+      service: softioc
 
   epics2web:
     hostname: epics2web

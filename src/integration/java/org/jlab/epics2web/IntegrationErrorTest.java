@@ -2,7 +2,6 @@ package org.jlab.epics2web;
 
 import com.cosylab.epics.caj.CAJChannel;
 import com.cosylab.epics.caj.CAJContext;
-import com.github.dockerjava.api.command.CreateContainerCmd;
 import gov.aps.jca.CAException;
 import gov.aps.jca.TimeoutException;
 import gov.aps.jca.configuration.DefaultConfiguration;
@@ -24,7 +23,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Consumer;
 
 public class IntegrationErrorTest {
     private static ChannelManager channelManager;
@@ -38,32 +36,23 @@ public class IntegrationErrorTest {
     public static Network network = Network.newNetwork();
 
 
-    public static GenericContainer softioc = new GenericContainer("slominskir/softioc") {
-        {
-            this.addFixedExposedPort(5064, 5064, InternetProtocol.TCP);
-            this.addFixedExposedPort(5065, 5065, InternetProtocol.TCP);
-            this.addFixedExposedPort(5064, 5064, InternetProtocol.UDP);
-            this.addFixedExposedPort(5065, 5065, InternetProtocol.UDP);
-        }
-    }
-            //.withExposedPorts(5064, 5065)
+    public static GenericContainer<?> softioc = new FixedHostPortGenericContainer<>("slominskir/softioc:1.1.0")
+            .withFixedExposedPort(5064, 5064, InternetProtocol.TCP)
+            .withFixedExposedPort(5065, 5065, InternetProtocol.TCP)
+            //.withFixedExposedPort(5064, 5064, InternetProtocol.UDP)
+            //.withFixedExposedPort(5065, 5065, InternetProtocol.UDP)
             .withNetwork(network)
             .withPrivilegedMode(true)
-            .withCreateContainerCmdModifier(new Consumer<CreateContainerCmd>() {
-                @Override
-                public void accept(CreateContainerCmd cmd) {
-                    cmd
-                            .withHostName("softioc") // Fixed hostname so we can stop/start and check if monitors automatically recover
-                            .withUser("root")
-                            .withAttachStdin(true)
-                            .withStdinOpen(true)
-                            .withTty(true);
-                }
-            })
-            .withLogConsumer(new Slf4jLogConsumer(LOGGER))
+            .withCreateContainerCmdModifier(cmd -> cmd
+                    .withHostName("softioc")
+                    .withName("softioc")
+                    .withUser("root")
+                    .withAttachStdin(true)
+                    .withStdinOpen(true)
+                    .withTty(true))
+            .withLogConsumer(new Slf4jLogConsumer(LOGGER).withPrefix("softioc"))
             .waitingFor(Wait.forLogMessage("iocRun: All initialization complete", 1))
-            //.withClasspathResourceMapping("softioc.db", "/db/softioc.db", BindMode.READ_ONLY)
-            .withFileSystemBind("examples/softioc-db", "/db", BindMode.READ_ONLY);
+            .withFileSystemBind("examples/integration/softioc", "/db", BindMode.READ_ONLY);
 
     @BeforeClass
     public static void setUp() throws CAException {
@@ -102,8 +91,13 @@ public class IntegrationErrorTest {
 
         softioc.stop();
 
-        timeoutExecutor.shutdownNow();
-        callbackExecutor.shutdownNow();
+        if(timeoutExecutor != null) {
+            timeoutExecutor.shutdownNow();
+        }
+
+        if(callbackExecutor != null) {
+            callbackExecutor.shutdownNow();
+        }
     }
 
     /**
