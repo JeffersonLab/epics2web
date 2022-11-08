@@ -1,4 +1,4 @@
-# epics2web [![Java CI with Gradle](https://github.com/JeffersonLab/epics2web/actions/workflows/gradle.yml/badge.svg)](https://github.com/JeffersonLab/epics2web/actions/workflows/gradle.yml) [![Docker](https://img.shields.io/docker/v/slominskir/epics2web?sort=semver&label=DockerHub)](https://hub.docker.com/r/slominskir/epics2web)
+# epics2web [![Java CI with Gradle](https://github.com/JeffersonLab/epics2web/actions/workflows/ci.yml/badge.svg)](https://github.com/JeffersonLab/epics2web/actions/workflows/ci.yml) [![Docker](https://img.shields.io/docker/v/slominskir/epics2web?sort=semver&label=DockerHub)](https://hub.docker.com/r/slominskir/epics2web)
 A gateway server and accompanying JavaScript client API to monitor [EPICS](http://www.aps.anl.gov/epics/) Channel Access over Web Sockets.  A caget-like JSON web service endpoint is also provided.
 
 ![MonitorTest](https://github.com/JeffersonLab/epics2web/raw/main/doc/img/MonitorTest.png?raw=true "MonitorTest")
