@@ -9,6 +9,7 @@ A gateway server and accompanying JavaScript client API to monitor [EPICS](http:
 - [API](https://github.com/JeffersonLab/epics2web#api)
 - [Configure](https://github.com/JeffersonLab/epics2web#configure)
 - [Build](https://github.com/JeffersonLab/epics2web#build) 
+- [Release](https://github.com/JeffersonLab/epics2web#release)
 - [See Also](https://github.com/JeffersonLab/epics2web#see-also)
 ---
 
@@ -60,6 +61,12 @@ gradlew build
 **Note for JLab On-Site Users**: Jefferson Lab has an intercepting [proxy](https://gist.github.com/slominskir/92c25a033db93a90184a5994e71d0b78)
 
 **See**: [Docker Development Quick Reference](https://gist.github.com/slominskir/a7da801e8259f5974c978f9c3091d52c#development-quick-reference)
+
+## Release
+1. Bump the version number and release date in build.gradle and commit and push to GitHub (using [Semantic Versioning](https://semver.org/)).
+2. Create a new release on the GitHub [Releases](https://github.com/JeffersonLab/jaws-libj/releases) page corresponding to same version in build.gradle (Enumerate changes and link issues).  Attach war file for users to download.
+3. Build and publish a new Docker image [from the GitHub tag](https://gist.github.com/slominskir/a7da801e8259f5974c978f9c3091d52c#8-build-an-image-based-of-github-tag).  DockerHub is configured to do this automatically on git push of semver tag (typically part of GitHub release).
+4. Bump and commit quick start [image version](https://github.com/JeffersonLab/epics2web/blob/main/docker-compose.override.yml)
 
 ## See Also
 - [Web Extensible Display Manager (wedm)](https://github.com/JeffersonLab/wedm)
