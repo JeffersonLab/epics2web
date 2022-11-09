@@ -1,9 +1,10 @@
 # epics2web [![Java CI with Gradle](https://github.com/JeffersonLab/epics2web/actions/workflows/ci.yml/badge.svg)](https://github.com/JeffersonLab/epics2web/actions/workflows/ci.yml) [![Docker](https://img.shields.io/docker/v/jeffersonlab/epics2web?sort=semver&label=DockerHub)](https://hub.docker.com/r/jeffersonlab/epics2web)
-A gateway server and accompanying JavaScript client API to monitor [EPICS](http://www.aps.anl.gov/epics/) Channel Access over Web Sockets.  A caget-like JSON web service endpoint is also provided.
+A gateway server and accompanying JavaScript client API to monitor EPICS Channel Access over the web.
 
 ![MonitorTest](https://github.com/JeffersonLab/epics2web/raw/main/doc/img/MonitorTest.png?raw=true "MonitorTest")
 
 ---
+- [Overview](https://github.com/JeffersonLab/epics2web#overview)
 - [Quick Start with Compose](https://github.com/JeffersonLab/epics2web#quick-start-with-compose)
 - [Install](https://github.com/JeffersonLab/epics2web#build)
 - [API](https://github.com/JeffersonLab/epics2web#api)
@@ -12,6 +13,9 @@ A gateway server and accompanying JavaScript client API to monitor [EPICS](http:
 - [Release](https://github.com/JeffersonLab/epics2web#release)
 - [See Also](https://github.com/JeffersonLab/epics2web#see-also)
 ---
+
+## Overview
+The epics2web application allows users to monitor [EPICS](http://www.aps.anl.gov/epics/) PVs from the web using Web Sockets and REST web service endpoint.  The application leverages the Java [JCA](https://github.com/epics-base/jca) library and is designed to run on Apache Tomcat.
 
 ## Quick Start with Compose 
 1. Grab project
