@@ -37,7 +37,8 @@ PV name: `HELLO`
 **See**: [Docker Compose Strategy](https://gist.github.com/slominskir/a7da801e8259f5974c978f9c3091d52c)
 
 ## Install
-   1. Download [Apache Tomcat](http://tomcat.apache.org/)
+   1. Download Java 8+
+   1. Download [Apache Tomcat 7, 8, or 9](http://tomcat.apache.org/)
    1. Download [epics2web.war](https://github.com/JeffersonLab/epics2web/releases) and drop it into the Tomcat webapps directory
    1. Start Tomcat and navigate your web browser to localhost:8080/epics2web
 
