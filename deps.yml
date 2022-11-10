@@ -1,6 +1,6 @@
 services:
   softioc:
-    image: slominskir/softioc:1.1.0
+    image: jeffersonlab/softioc:1.1.0
     tty: true
     stdin_open: true
     hostname: softioc
