@@ -5,10 +5,10 @@ plugins {
 
 description = "EPICS to web gateway"
 group 'org.jlab'
-version '1.14.0'
+version '1.14.1'
 
 ext {
-    releaseDate = 'Nov 9 2022'
+    releaseDate = 'Nov 10 2022'
     productionRelease = 'true'
 }
 
@@ -46,8 +46,9 @@ configurations {
 dependencies {
     implementation 'javax.servlet:jstl:1.2',
                    'org.glassfish:javax.json:1.1.4',
-                   'org.epics:jca:2.4.7'
-    providedCompile 'javax:javaee-api:8.0.1'
+                   files('lib/jca-2.4.6.jar')
+    //implementation 'org.epics:jca:2.4.6' // Only works with Java 11 runtime
+    providedCompile 'javax:javaee-api:7.0'
 
     testImplementation 'junit:junit:4.13.2'
 }
