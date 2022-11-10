@@ -10,6 +10,7 @@ A gateway server and accompanying JavaScript client API to monitor EPICS Channel
 - [API](https://github.com/JeffersonLab/epics2web#api)
 - [Configure](https://github.com/JeffersonLab/epics2web#configure)
 - [Build](https://github.com/JeffersonLab/epics2web#build) 
+- [Test](https://github.com/JeffersonLab/epics2web#test)
 - [Release](https://github.com/JeffersonLab/epics2web#release)
 - [See Also](https://github.com/JeffersonLab/epics2web#see-also)
 ---
@@ -53,7 +54,7 @@ PV name: `HELLO`
 This application uses the [Java Channel Access](https://github.com/epics-base/jca) library.   It requires a working EPICS channel access environment with the environment variable *EPICS_CA_ADDR_LIST* set.  See Also: [Advanced Configuration](https://github.com/JeffersonLab/epics2web/wiki/Advanced-Configuration).
 
 ## Build
-This project is built with [Java 17](https://adoptium.net/) (compiled to Java 8 bytecode), and uses the [Gradle 7](https://gradle.org/) build tool to automatically download dependencies and build the project from source:
+This project is built with [Java 17](https://adoptium.net/) (compiled to Java 11 bytecode), and uses the [Gradle 7](https://gradle.org/) build tool to automatically download dependencies and build the project from source:
 
 ```
 git clone https://github.com/JeffersonLab/epics2web
@@ -66,6 +67,14 @@ gradlew build
 
 **See**: [Docker Development Quick Reference](https://gist.github.com/slominskir/a7da801e8259f5974c978f9c3091d52c#development-quick-reference)
 
+## Test
+```
+docker compose -f build.yml up
+```
+Wait for containers to start then:
+```
+gradlew integrationTest
+```
 ## Release
 1. Bump the version number and release date in build.gradle and commit and push to GitHub (using [Semantic Versioning](https://semver.org/)).
 2. Create a new release on the GitHub [Releases](https://github.com/JeffersonLab/epics2web/releases) page corresponding to same version in build.gradle (Enumerate changes and link issues).  Attach war file for users to download.

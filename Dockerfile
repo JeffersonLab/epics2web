@@ -1,5 +1,5 @@
 ARG BUILD_IMAGE=gradle:7.4-jdk17-alpine
-ARG RUN_IMAGE=tomcat:9.0.39-jdk8-adoptopenjdk-hotspot
+ARG RUN_IMAGE=tomcat:9.0.68-jdk11-temurin
 
 ################## Stage 0
 FROM ${BUILD_IMAGE} as builder

@@ -5,21 +5,28 @@ plugins {
 
 description = "EPICS to web gateway"
 group 'org.jlab'
-version '1.13.0'
+version '1.14.0'
 
 ext {
-    releaseDate = 'March 21 2022'
+    releaseDate = 'Nov 9 2022'
     productionRelease = 'true'
+}
+
+compileJava {
+    options.release = 8
+}
+
+compileTestJava {
+    options.release = 11
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+    options.compilerArgs << "-Xlint:unchecked" << "-Xlint:deprecation"
 }
 
 repositories {
     mavenCentral()
-}
-
-tasks.withType(JavaCompile) {
-    options.release = 8
-    options.encoding = 'UTF-8'
-    options.compilerArgs << "-Xlint:unchecked" << "-Xlint:deprecation"
 }
 
 sourceSets {
@@ -32,22 +39,17 @@ sourceSets {
 }
 
 configurations {
-    testImplementation.extendsFrom compileOnly
-    integrationImplementation.extendsFrom implementation
+    integrationImplementation.extendsFrom testImplementation
     integrationRuntimeOnly.extendsFrom runtimeOnly
 }
 
 dependencies {
     implementation 'javax.servlet:jstl:1.2',
                    'org.glassfish:javax.json:1.1.4',
-                   files('lib/jca-2.4.6.jar')
-    //implementation 'org.epics:jca:2.4.6' // Only works with Java 11 runtime
-    providedCompile 'javax:javaee-api:7.0'
+                   'org.epics:jca:2.4.7'
+    providedCompile 'javax:javaee-api:8.0.1'
 
-    testImplementation 'junit:junit:4.13'
-
-    integrationImplementation 'org.testcontainers:testcontainers:1.16.3',
-                              'org.slf4j:slf4j-log4j12:1.7.28'
+    testImplementation 'junit:junit:4.13.2'
 }
 
 task integrationTest(type: Test) {
@@ -56,17 +58,10 @@ task integrationTest(type: Test) {
 
     testClassesDirs = sourceSets.integration.output.classesDirs
     classpath = sourceSets.integration.runtimeClasspath
-    //shouldRunAfter test
 
     testLogging {
-        showStandardStreams = true
-    }
-}
-
-test {
-    classpath = project.sourceSets.test.runtimeClasspath + files("${projectDir}/examples/softioc-db")
-
-    testLogging {
+        events "passed", "skipped", "failed"
+        exceptionFormat "full"
         showStandardStreams = true
     }
 }
