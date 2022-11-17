@@ -24,7 +24,7 @@ The epics2web application allows users to monitor [EPICS](http://www.aps.anl.gov
 git clone https://github.com/JeffersonLab/epics2web
 cd epics2web
 ```
-2. Launch Docker
+2. Launch [Compose](https://github.com/docker/compose)
 ```
 docker compose up
 ```
