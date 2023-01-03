@@ -17,5 +17,5 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: jeffersonlab/epics2web
+          repository: jeffersonlab/${{ github.event.repository.name }}
           short-description: ${{ github.event.repository.description }}
