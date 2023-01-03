@@ -80,7 +80,7 @@ gradlew integrationTest
 1. Bump the version number and release date in build.gradle and commit and push to GitHub (using [Semantic Versioning](https://semver.org/)).
 2. Create a new release on the GitHub [Releases](https://github.com/JeffersonLab/epics2web/releases) page corresponding to same version in build.gradle (Enumerate changes and link issues).  Attach war file for users to download.
 3. Build and publish a new Docker image [from the GitHub tag](https://gist.github.com/slominskir/a7da801e8259f5974c978f9c3091d52c#8-build-an-image-based-of-github-tag).  GitHub is configured to do this automatically on git push of semver tag (typically part of GitHub release) or the [Publish to DockerHub](https://github.com/JeffersonLab/epics2web/actions/workflows/docker-publish.yml) action can be manually triggered after selecting a tag.
-5. Bump and commit quick start [image version](https://github.com/JeffersonLab/epics2web/blob/main/docker-compose.override.yml)
+4. Bump and commit quick start [image version](https://github.com/JeffersonLab/epics2web/blob/main/docker-compose.override.yml)
 
 ## See Also
 - [Web Extensible Display Manager (wedm)](https://github.com/JeffersonLab/wedm)
