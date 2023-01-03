@@ -16,7 +16,7 @@ A gateway server and accompanying JavaScript client API to monitor EPICS Channel
 ---
 
 ## Overview
-The epics2web application allows users to monitor [EPICS](http://www.aps.anl.gov/epics/) PVs from the web using Web Sockets and REST web service endpoint.  The application leverages the Java [JCA](https://github.com/epics-base/jca) library and is designed to run on Apache Tomcat.
+The epics2web application allows users to monitor [EPICS](http://www.aps.anl.gov/epics/) PVs from the web using Web Sockets and a REST web service endpoint.  The application leverages the Java [JCA](https://github.com/epics-base/jca) library and is designed to run on Apache Tomcat.
 
 ## Quick Start with Compose 
 1. Grab project
