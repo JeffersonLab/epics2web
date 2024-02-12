@@ -1,5 +1,6 @@
 package org.jlab.epics2web.websocket;
 
+import gov.aps.jca.CAException;
 import gov.aps.jca.dbr.DBR;
 import gov.aps.jca.dbr.DBRType;
 import java.io.IOException;
@@ -20,6 +21,7 @@ import javax.json.*;
 import javax.websocket.Session;
 import org.jlab.epics2web.Application;
 import org.jlab.epics2web.epics.PvListener;
+import org.jlab.util.LockAcquisitionTimeoutException;
 
 /**
  * Manages web socket sessions and ties them to channel access monitors.
@@ -148,7 +150,12 @@ public class WebSocketSessionManager {
     public void addClient(Session session) {
         WebSocketSessionMonitor listener = getListener(session);
 
-        Application.channelManager.addListener(listener);
+        try {
+            Application.channelManager.addListener(listener);
+        } catch (InterruptedException | LockAcquisitionTimeoutException e) {
+            LOGGER.log(Level.WARNING, "Unable to addClient: " + session.getId(), e);
+            // TODO: Retry?
+        }
     }
 
     /**
@@ -162,7 +169,12 @@ public class WebSocketSessionManager {
         if (listener != null) {
             listenerMap.remove(session);
 
-            Application.channelManager.removeListener(listener);
+            try {
+                Application.channelManager.removeListener(listener);
+            } catch (LockAcquisitionTimeoutException | InterruptedException e) {
+                LOGGER.log(Level.WARNING, "Unable to removeClient: " + session.getId(), e);
+                // TODO: Retry?
+            }
         }
     }
 
@@ -175,7 +187,12 @@ public class WebSocketSessionManager {
     public void addPvs(Session session, Set<String> pvSet) {
         WebSocketSessionMonitor listener = getListener(session);
 
-        Application.channelManager.addPvs(listener, pvSet);
+        try {
+            Application.channelManager.addPvs(listener, pvSet);
+        } catch (InterruptedException | CAException | LockAcquisitionTimeoutException e) {
+            LOGGER.log(Level.WARNING, "Unable to addPvs: " + String.join(",", pvSet == null ? new HashSet<>() : pvSet), e);
+            // TODO: Retry?
+        }
     }
 
     /**
@@ -187,7 +204,12 @@ public class WebSocketSessionManager {
     public void clearPvs(Session session, Set<String> pvSet) {
         WebSocketSessionMonitor listener = getListener(session);
 
-        Application.channelManager.clearPvs(listener, pvSet);
+        try {
+            Application.channelManager.clearPvs(listener, pvSet);
+        } catch (InterruptedException | LockAcquisitionTimeoutException e) {
+            LOGGER.log(Level.WARNING, "Unable to clearPvs: " + String.join(",", pvSet == null ? new HashSet<>() : pvSet), e);
+            // TODO: Retry?
+        }
     }
 
     /**
