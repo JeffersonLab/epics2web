@@ -287,7 +287,7 @@ public class ChannelManager {
      * @param listener The PvListener
      */
     public void addListener(PvListener listener) throws InterruptedException, LockAcquisitionTimeoutException {
-        if(clientLock.tryLock(CLEANUP_RESOURCE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+        if(clientLock.tryLock(ACQUIRE_RESOURCE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
             try {
                 Set<String> pvSet = clientMap.get(listener);
 
