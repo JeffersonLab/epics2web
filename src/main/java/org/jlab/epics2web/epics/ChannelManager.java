@@ -42,11 +42,18 @@ public class ChannelManager {
     private final ScheduledExecutorService timeoutExecutor;
     private final ExecutorService callbackExecutor;
 
-    private final ReentrantLock clientLock = new ReentrantLock();
-    private final ReentrantLock monitorLock = new ReentrantLock();
+    private final ReentrantLock managerLock = new ReentrantLock();
 
-    private final long ACQUIRE_RESOURCE_TIMEOUT_SECONDS = 5;
-    private final long CLEANUP_RESOURCE_TIMEOUT_SECONDS = 60;
+    /**
+     * Overloaded server will reject create channel requests after 30 seconds; may also shake deadlock bug in
+     * CAJ createChannel.
+     */
+    private final long ACQUIRE_RESOURCE_TIMEOUT_SECONDS = 30;
+
+    /**
+     * After 15 minutes we assume better to leak resource than stay stuck
+     */
+    private final long CLEANUP_RESOURCE_TIMEOUT_SECONDS = 900;
 
     /**
      * Create a new ChannelMonitorManager.
@@ -188,8 +195,6 @@ public class ChannelManager {
      * @param addPvSet The set of PVs to monitor
      */
     public void addPvs(PvListener listener, Set<String> addPvSet) throws InterruptedException, CAException, LockAcquisitionTimeoutException {
-        Set<String> newPvSet = new HashSet<>();
-
         if (addPvSet != null) {
             // Make sure empty string isn't included as a PV as that is invalid and is ignored
             boolean emptyIncluded = addPvSet.remove("");
@@ -198,51 +203,40 @@ public class ChannelManager {
                 LOGGER.log(Level.FINEST, "Empty string ignored in add PV request");
             }
 
-            newPvSet.addAll(addPvSet);
-
-            for (String pv : addPvSet) {
-                //LOGGER.log(Level.FINEST, "addListener pv: {0}; pv: {1}", new Object[]{session, pv});
-
+            for(String pv: addPvSet) {
                 ChannelMonitor monitor = null;
+                monitor = monitorMap.get(pv);
 
-                if(monitorLock.tryLock(ACQUIRE_RESOURCE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                // INTERNAL HOLDING LOCK
+                if(managerLock.tryLock(ACQUIRE_RESOURCE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
                     try {
-                        monitor = monitorMap.get(pv);
-
                         if (monitor == null) {
                             //LOGGER.log(Level.FINEST, "Opening ChannelMonitor: {0}", pv);
+                            // HERE IS THE HEAVYWEIGHT ACTION: It's an async create channel request, but is still
+                            // bottleneck; We're holding a lock while we wait...
                             monitor = new ChannelMonitor(pv, context, timeoutExecutor, callbackExecutor);
                             monitorMap.put(pv, monitor);
                         } else {
                             //LOGGER.log(Level.FINEST, "Joining ChannelMonitor: {0}", pv);
                         }
+
+                        Set<String> clientPvSet = clientMap.get(listener);
+
+                        if (clientPvSet != null) {
+                            clientPvSet = new HashSet<>();
+                        }
+
+                        clientMap.put(listener, clientPvSet);
                     } finally {
-                        monitorLock.unlock();
+                        managerLock.unlock();
                     }
                 } else {
-                    throw new LockAcquisitionTimeoutException("Timeout while acquiring monitorLock in addPvs");
+                    throw new LockAcquisitionTimeoutException("Timeout while acquiring managerLock in addPvs");
                 }
 
-                if (monitor != null) {
-                    monitor.addListener(listener);
-                }
+                // EXTERNAL NO LOCK
+                monitor.addListener(listener);
             }
-        }
-
-        if(clientLock.tryLock(ACQUIRE_RESOURCE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
-            try {
-                Set<String> oldPvSet = clientMap.get(listener);
-
-                if (oldPvSet != null) {
-                    newPvSet.addAll(oldPvSet);
-                }
-
-                clientMap.put(listener, newPvSet);
-            } finally {
-                clientLock.unlock();
-            }
-        } else {
-            throw new LockAcquisitionTimeoutException("Timeout while acquiring clientLock in addPvs");
         }
     }
 
@@ -255,7 +249,7 @@ public class ChannelManager {
     public void clearPvs(PvListener listener, Set<String> clearPvSet) throws InterruptedException, LockAcquisitionTimeoutException {
         Set<String> newPvSet;
 
-        if(clientLock.tryLock(CLEANUP_RESOURCE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+        if(managerLock.tryLock(CLEANUP_RESOURCE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
             try {
                 Set<String> oldPvSet = clientMap.get(listener);
 
@@ -267,10 +261,10 @@ public class ChannelManager {
                 }
                 clientMap.put(listener, newPvSet);
             } finally {
-                clientLock.unlock();
+                managerLock.unlock();
             }
         } else {
-            throw new LockAcquisitionTimeoutException("Timeout while acquiring clientLock in addPvs");
+            throw new LockAcquisitionTimeoutException("Timeout while acquiring managerLock in clearPvs");
         }
 
         removeFromChannels(listener, clearPvSet);
@@ -287,7 +281,7 @@ public class ChannelManager {
      * @param listener The PvListener
      */
     public void addListener(PvListener listener) throws InterruptedException, LockAcquisitionTimeoutException {
-        if(clientLock.tryLock(ACQUIRE_RESOURCE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+        if(managerLock.tryLock(ACQUIRE_RESOURCE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
             try {
                 Set<String> pvSet = clientMap.get(listener);
 
@@ -297,10 +291,10 @@ public class ChannelManager {
 
                 clientMap.put(listener, pvSet);
             } finally {
-                clientLock.unlock();
+                managerLock.unlock();
             }
         } else {
-            throw new LockAcquisitionTimeoutException("Timeout while acquiring clientLock in addListener");
+            throw new LockAcquisitionTimeoutException("Timeout while acquiring managerLock in addListener");
         }
     }
 
@@ -312,7 +306,7 @@ public class ChannelManager {
      * @param pvSet The PV list (and indirectly the channel list)
      */
     private void removeFromChannels(PvListener listener, Set<String> pvSet) throws InterruptedException, LockAcquisitionTimeoutException {
-        if (pvSet != null) { // Some clients don't immediately connect to a pv so have an empty pv list
+        if (pvSet != null) {
             for (String pv : pvSet) {
                 int listenerCount = 0;
 
@@ -322,7 +316,7 @@ public class ChannelManager {
                     monitor.removeListener(listener);
                 }
 
-                if(monitorLock.tryLock(CLEANUP_RESOURCE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                if(managerLock.tryLock(CLEANUP_RESOURCE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
                     try {
                         monitor = monitorMap.get(pv);
 
@@ -333,10 +327,10 @@ public class ChannelManager {
                             }
                         }
                     } finally {
-                        monitorLock.unlock();
+                        managerLock.unlock();
                     }
                 } else {
-                    throw new LockAcquisitionTimeoutException("Timeout while acquiring monitorLock in removeFromChannels");
+                    throw new LockAcquisitionTimeoutException("Timeout while acquiring managerLock in removeFromChannels");
                 }
 
                 // We call close without holding a lock
@@ -361,7 +355,6 @@ public class ChannelManager {
         //LOGGER.log(Level.FINEST, "removeListener: {0}", session);
         Set<String> pvSet = clientMap.remove(listener);
 
-        // Don't do this while holding writeLock above since this method could be called by monitorChanged or from websocket close!
         removeFromChannels(listener, pvSet);
     }
 
