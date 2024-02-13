@@ -186,7 +186,7 @@ public class MonitorEndpoint {
                 JsonArray pvs = obj.getJsonArray("pvs");
                 Set<String> pvSet = Application.sessionManager.getPvSetFromJson(pvs);
 
-                Application.sessionManager.clearPvs(session, pvSet);
+                Application.sessionManager.removePvs(session, pvSet);
             } else {
                 LOGGER.log(Level.WARNING, "Unknown client request: {0}", message);
             }
