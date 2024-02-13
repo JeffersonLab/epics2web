@@ -262,8 +262,6 @@ public class ChannelManager {
                 if (clientPvSet != null) {
                     clientPvSet.remove(pv);
                 }
-
-                clientMap.put(listener, clientPvSet);
             } finally {
                 managerLock.unlock();
             }
