@@ -195,6 +195,7 @@ public class ChannelManager {
      * @param pv The PV to monitor
      */
     public void addPv(PvListener listener, String pv) throws InterruptedException, CAException, LockAcquisitionTimeoutException {
+        LOGGER.log(Level.FINEST, "addPv: {0} {1}", new Object[] {listener, pv});
         ChannelMonitor monitor = null;
         monitor = monitorMap.get(pv);
 
@@ -213,7 +214,7 @@ public class ChannelManager {
 
                 Set<String> clientPvSet = clientMap.get(listener);
 
-                if (clientPvSet != null) {
+                if (clientPvSet == null) {
                     clientPvSet = new HashSet<>();
                 }
 
@@ -238,8 +239,7 @@ public class ChannelManager {
      * @param pv The PV to remove
      */
     public void removePv(PvListener listener, String pv) throws InterruptedException, LockAcquisitionTimeoutException {
-        Set<String> newPvSet;
-
+        LOGGER.log(Level.FINEST, "removePv: {0} {1}", new Object[] {listener, pv});
         int listenerCount = 0;
         ChannelMonitor monitor = monitorMap.get(pv);
 
@@ -289,15 +289,17 @@ public class ChannelManager {
      * @return a map of PV names to Exceptions for any PVs that were unable to be removed
      */
     public Map<String, Exception> removeAll(PvListener listener) {
-        //LOGGER.log(Level.FINEST, "removeListener: {0}", session);
+        LOGGER.log(Level.FINEST, "removeAll: {0}", listener);
         Set<String> pvSet = clientMap.remove(listener);
 
         Map<String, Exception> failed = new HashMap<>();
-        for(String pv: pvSet) {
-            try {
-                removePv(listener, pv);
-            } catch(InterruptedException | LockAcquisitionTimeoutException e) {
-                failed.put(pv, e);
+        if(pvSet != null) {
+            for (String pv : pvSet) {
+                try {
+                    removePv(listener, pv);
+                } catch (InterruptedException | LockAcquisitionTimeoutException e) {
+                    failed.put(pv, e);
+                }
             }
         }
 
