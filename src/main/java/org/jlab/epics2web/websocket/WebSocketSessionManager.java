@@ -148,14 +148,8 @@ public class WebSocketSessionManager {
      * @param session The session (client) to manage
      */
     public void addClient(Session session) {
-        WebSocketSessionMonitor listener = getListener(session);
-
-        try {
-            Application.channelManager.addListener(listener);
-        } catch (InterruptedException | LockAcquisitionTimeoutException e) {
-            LOGGER.log(Level.WARNING, "Unable to addClient: " + session.getId(), e);
-            // TODO: Retry?
-        }
+        // Only a "real" client once actually monitoring something via addPvs()
+        // In other words, let's lazily create state only once needed
     }
 
     /**
@@ -164,18 +158,7 @@ public class WebSocketSessionManager {
      * @param session The session (client) to remove
      */
     public void removeClient(Session session) {
-        WebSocketSessionMonitor listener = listenerMap.get(session);
-
-        if (listener != null) {
-            listenerMap.remove(session);
-
-            try {
-                Application.channelManager.removeListener(listener);
-            } catch (LockAcquisitionTimeoutException | InterruptedException e) {
-                LOGGER.log(Level.WARNING, "Unable to removeClient: " + session.getId(), e);
-                // TODO: Retry?
-            }
-        }
+        removePvs(session, null);
     }
 
     /**
@@ -187,28 +170,57 @@ public class WebSocketSessionManager {
     public void addPvs(Session session, Set<String> pvSet) {
         WebSocketSessionMonitor listener = getListener(session);
 
-        try {
-            Application.channelManager.addPvs(listener, pvSet);
-        } catch (InterruptedException | CAException | LockAcquisitionTimeoutException e) {
-            LOGGER.log(Level.WARNING, "Unable to addPvs: " + String.join(",", pvSet == null ? new HashSet<>() : pvSet), e);
-            // TODO: Retry?
+        if (pvSet != null) {
+            // Make sure empty string isn't included as a PV as that is invalid and is ignored
+            boolean emptyIncluded = pvSet.remove("");
+
+            if (emptyIncluded) {
+                LOGGER.log(Level.FINEST, "Empty string ignored in add PV request");
+            }
+
+            for (String pv : pvSet) {
+                try {
+                    Application.channelManager.addPv(listener, pv);
+                } catch (InterruptedException | CAException | LockAcquisitionTimeoutException e) {
+                    LOGGER.log(Level.WARNING, "Unable to addPv: " + pv, e);
+                    // TODO: Retry?
+                }
+            }
         }
     }
 
     /**
-     * Stop monitoring the provided PVs for the specified client.
+     * Stop monitoring the provided PVs for the specified client.  Completely remove the session and all PVs by setting
+     * pvSet to null.
      *
      * @param session The client session
-     * @param pvSet The set of PVs
+     * @param pvSet The set of PVs.  Remove all if pvSet is null
      */
-    public void clearPvs(Session session, Set<String> pvSet) {
+    public void removePvs(Session session, Set<String> pvSet) {
         WebSocketSessionMonitor listener = getListener(session);
 
-        try {
-            Application.channelManager.clearPvs(listener, pvSet);
-        } catch (InterruptedException | LockAcquisitionTimeoutException e) {
-            LOGGER.log(Level.WARNING, "Unable to clearPvs: " + String.join(",", pvSet == null ? new HashSet<>() : pvSet), e);
-            // TODO: Retry?
+        if (pvSet != null) {
+            // Make sure empty string isn't included as a PV as that is invalid and is ignored
+            boolean emptyIncluded = pvSet.remove("");
+
+            if (emptyIncluded) {
+                LOGGER.log(Level.FINEST, "Empty string ignored in remove PV request");
+            }
+
+            for (String pv : pvSet) {
+                try {
+                    Application.channelManager.removePv(listener, pv);
+                } catch (InterruptedException | LockAcquisitionTimeoutException e) {
+                    LOGGER.log(Level.WARNING, "Unable to removePv: " + pv, e);
+                    // TODO: Retry?
+                }
+            }
+        } else { // pvSet == null (removeAll)
+            Map<String, Exception> failed =  Application.channelManager.removeAll(listener);
+            for(String pv: failed.keySet()) {
+                LOGGER.log(Level.WARNING, "Unable to (bulk) removePv: " + pv, failed.get(pv));
+                // TODO: Retry?
+            }
         }
     }
 
