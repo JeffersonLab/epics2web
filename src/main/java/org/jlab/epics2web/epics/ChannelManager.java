@@ -9,6 +9,7 @@ import gov.aps.jca.dbr.DBRType;
 import org.jlab.util.LockAcquisitionTimeoutException;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -68,55 +69,68 @@ public class ChannelManager {
         this.callbackExecutor = callbackExecutor;
     }
 
+    public static String getDbrValueAsString(DBR dbr) {
+        String strValue = null;
+        if(dbr == null){
+            strValue = "";
+        } else if (dbr.isDOUBLE()) {
+            double value = ((gov.aps.jca.dbr.DOUBLE) dbr).getDoubleValue()[0];
+            if (Double.isFinite(value)) {
+                strValue = String.valueOf(value);
+            } else if (Double.isNaN(value)) {
+                strValue = "NaN";
+            } else {
+                strValue = "Infinity";
+            }
+        } else if (dbr.isFLOAT()) {
+            float value = ((gov.aps.jca.dbr.FLOAT) dbr).getFloatValue()[0];
+            if (Float.isFinite(value)) {
+                strValue = String.valueOf(value);
+            } else if (Float.isNaN(value)) {
+                strValue = "NaN";
+            } else {
+                strValue = "Infinity";
+            }
+        } else if (dbr.isINT()) {
+            int value = ((gov.aps.jca.dbr.INT) dbr).getIntValue()[0];
+            strValue = String.valueOf(value);
+        } else if (dbr.isSHORT()) {
+            short value = ((gov.aps.jca.dbr.SHORT) dbr).getShortValue()[0];
+            strValue = String.valueOf(value);
+        } else if (dbr.isENUM()) {
+            short value = ((gov.aps.jca.dbr.ENUM) dbr).getEnumValue()[0];
+            strValue = String.valueOf(value);
+        } else if (dbr.isBYTE()) {
+            byte[] value = ((gov.aps.jca.dbr.BYTE) dbr).getByteValue();
+            int len = value.length;
+            if (len > 1) {
+                // epics2web generally doesn't handle arrays,
+                // but for BYTE[] assume that data is really "long string".
+                // Text ends at first '\0' or end of array
+                for (int i=0; i<len; ++i)
+                    if (value[i] == 0) {
+                        len = i;
+                        break;
+                    }
+                try {
+                    strValue = new String(value, 0, len, "UTF-8");
+                } catch(UnsupportedEncodingException e) {
+                    throw new RuntimeException("JVM doesn't support UTF-8!");
+                }
+            }
+            else
+                strValue = String.valueOf(value[0]);
+        } else {
+            String value = ((gov.aps.jca.dbr.STRING) dbr).getStringValue()[0];
+            strValue = value;
+        }
+
+        return strValue;
+    }
+
     public void addValueToJSON(JsonObjectBuilder builder, DBR dbr) {
         try {
-            if (dbr.isDOUBLE()) {
-                double value = ((gov.aps.jca.dbr.DOUBLE) dbr).getDoubleValue()[0];
-                if (Double.isFinite(value)) {
-                    builder.add("value", value);
-                } else if (Double.isNaN(value)) {
-                    builder.add("value", "NaN");
-                } else {
-                    builder.add("value", "Infinity");
-                }
-            } else if (dbr.isFLOAT()) {
-                float value = ((gov.aps.jca.dbr.FLOAT) dbr).getFloatValue()[0];
-                if (Float.isFinite(value)) {
-                    builder.add("value", value);
-                } else if (Float.isNaN(value)) {
-                    builder.add("value", "NaN");
-                } else {
-                    builder.add("value", "Infinity");
-                }
-            } else if (dbr.isINT()) {
-                int value = ((gov.aps.jca.dbr.INT) dbr).getIntValue()[0];
-                builder.add("value", value);
-            } else if (dbr.isSHORT()) {
-                short value = ((gov.aps.jca.dbr.SHORT) dbr).getShortValue()[0];
-                builder.add("value", value);
-            } else if (dbr.isENUM()) {
-                short value = ((gov.aps.jca.dbr.ENUM) dbr).getEnumValue()[0];
-                builder.add("value", value);
-            } else if (dbr.isBYTE()) {
-                byte[] value = ((gov.aps.jca.dbr.BYTE) dbr).getByteValue();
-                int len = value.length;
-                if (len > 1) {
-                    // epics2web generally doesn't handle arrays,
-                    // but for BYTE[] assume that data is really "long string".
-                    // Text ends at first '\0' or end of array
-                    for (int i=0; i<len; ++i)
-                        if (value[i] == 0) {
-                            len = i;
-                            break;
-                        }
-                    builder.add("value", new String(value, 0, len, "UTF-8"));
-                }
-                else
-                    builder.add("value", value[0]);
-            } else {
-                String value = ((gov.aps.jca.dbr.STRING) dbr).getStringValue()[0];
-                builder.add("value", value);
-            }
+            builder.add("value", getDbrValueAsString(dbr));
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, "Unable to create JSON from value", e);
             builder.add("value", "");
@@ -309,14 +323,9 @@ public class ChannelManager {
      *
      * @return The PV to monitor map
      */
-    public Map<String, Integer> getMonitorMap() {
-        Map<String, Integer> map;
-        Map<String, ChannelMonitor> copy = new HashMap<>(monitorMap); // First copy map so that concurrent changes won't bother us
-        map = new HashMap<>();
-        for (String pv : copy.keySet()) {
-            map.put(pv, copy.get(pv).getListenerCount());
-        }
-        return map;
+    public Map<String, ChannelMonitor> getMonitorMap() {
+        // Really want readonly copy version here, but too lazy to make immutable ChannelMonitor
+        return new HashMap<>(monitorMap);
     }
 
     /**
@@ -326,8 +335,6 @@ public class ChannelManager {
      * @return The listener to PVs map
      */
     public Map<PvListener, Set<String>> getClientMap() {
-        Map<PvListener, Set<String>> map;
-        map = Collections.unmodifiableMap(clientMap);
-        return map;
+        return Collections.unmodifiableMap(clientMap);
     }
 }

@@ -63,6 +63,8 @@
             <thead>
                 <tr>
                     <th>PV</th>
+                    <th>State</th>
+                    <th>Last Update</th>
                     <th>Clients</th>
                 </tr>
             </thead>
@@ -70,7 +72,9 @@
                 <c:forEach items="${monitorMap}" var="monitor">
                     <tr>
                         <td><c:out value="${monitor.key}"/></td>
-                        <td><c:out value="${monitor.value}"/></td>
+                        <td><c:out value="${monitor.value.state}"/></td>
+                        <td><fmt:formatDate pattern="MMM dd yyy HH:mm:ss" value="${monitor.value.lastTimestamp}"/> - <c:out value="${monitor.value.lastValue}"/></td>
+                        <td><c:out value="${monitor.value.listenerCount}"/></td>
                     </tr>
                 </c:forEach>
             </tbody>
