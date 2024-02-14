@@ -62,6 +62,7 @@ public class Application implements ServletContextListener {
         return writerExecutor.submit(new Runnable() {
             @Override
             public void run() {
+                final String id = session.getId() + " / " + session.getUserProperties().get("ip");
                 final ArrayBlockingQueue<String> writequeue = (ArrayBlockingQueue<String>) session.getUserProperties().get("writequeue");
                 try {
                     while (true) {
@@ -72,7 +73,7 @@ public class Application implements ServletContextListener {
                                 try {
                                     session.getBasicRemote().sendText(msg);
                                 } catch (IllegalStateException | IOException e) { // If session closes between time session.isOpen() and sentText(msg) then you'll get this exception.  Not an issue.
-                                    LOGGER.log(Level.FINEST, "Unable to send message: ", e);
+                                    LOGGER.log(Level.FINEST, "Unable to send message to " + id, e);
 
                                     if (!session.isOpen()) {
                                         LOGGER.log(Level.FINEST, "Session closed after write exception; shutting down write thread");
@@ -81,12 +82,12 @@ public class Application implements ServletContextListener {
                                 }
                             }
                         } else {
-                            LOGGER.log(Level.FINEST, "Session closed; shutting down write thread");
+                            LOGGER.log(Level.FINEST, "Session {0} closed; shutting down write thread", id);
                             break;
                         }
                     }
                 } catch (InterruptedException e) {
-                    LOGGER.log(Level.FINEST, "Shutting down writer thread as requested", e);
+                    LOGGER.log(Level.FINEST, "Shutting down {0} writer thread as requested by InterruptException", id);
                 }
             }
         });
