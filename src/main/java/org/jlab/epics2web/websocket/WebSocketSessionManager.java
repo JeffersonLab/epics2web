@@ -335,14 +335,17 @@ public class WebSocketSessionManager {
     @SuppressWarnings("unchecked")
     public void send(Session session, String pv, String msg) {
         if (session.isOpen()) {
+            String id = session.toString();
             if (Application.WRITE_STRATEGY == WriteStrategy.ASYNC_QUEUE) {
                 ConcurrentLinkedQueue<String> writequeue = (ConcurrentLinkedQueue<String>) session.getUserProperties().get("writequeue");               
-                
-                //System.out.println("Queue Size: " + writequeue.size());
+
                 if (writequeue.size() > Application.WRITE_QUEUE_SIZE_LIMIT) {
-                    //LOGGER.log(Level.INFO, "Dropping message: {0}", msg);
                     AtomicLong dropCount = (AtomicLong)session.getUserProperties().get("droppedMessageCount");
-                    dropCount.getAndIncrement();
+                    long count = dropCount.getAndIncrement() + 1; // getAndIncrement is actually returning previous value, not newly updated, so we add 1.
+                    // Limit log file output by only reporting when thresholds are reached
+                    if(count == 1 || count == 1000 || count == 10000 || count == 100000) {
+                        LOGGER.log(Level.FINEST, "Session {0} queue full (limit={1}); Dropping pv {2} message: {3}; total dropped: {4}", new Object[]{id, Application.WRITE_QUEUE_SIZE_LIMIT, pv, msg, count});
+                    }
                 } else {
                     writequeue.offer(msg);
                 }
@@ -355,9 +358,12 @@ public class WebSocketSessionManager {
                 boolean success = writequeue.offer(msg);              
                 
                 if(!success) {
-                    //LOGGER.log(Level.INFO, "Dropping message: {0}", msg);    
                     AtomicLong dropCount = (AtomicLong)session.getUserProperties().get("droppedMessageCount");
-                    dropCount.getAndIncrement();                       
+                    long count = dropCount.getAndIncrement() + 1;  // getAndIncrement is actually returning previous value, not newly updated, so we add 1.
+                    // Limit log file output by only reporting when thresholds are reached
+                    if(count == 1 || count == 1000 || count == 10000 || count == 100000) {
+                        LOGGER.log(Level.FINEST, "Session {0} queue full (limit={1}); Dropping pv {2} message: {3}; total dropped: {4}", new Object[]{id, Application.WRITE_QUEUE_SIZE_LIMIT, pv, msg, count});
+                    }
                 }                
             } else {
                 try {

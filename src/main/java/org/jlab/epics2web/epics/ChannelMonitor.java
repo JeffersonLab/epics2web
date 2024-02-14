@@ -266,7 +266,7 @@ public class ChannelMonitor implements Closeable {
                                 handleRegularConnectionOrReconnect();
                             }
                         } else {
-                            LOGGER.log(Level.FINE, "Notifying clients of disconnect from channel: {0}", pv);
+                            LOGGER.log(Level.FINEST, "Notifying clients of disconnect from channel: {0}", pv);
 
                             state.set(MonitorState.DISCONNECTED);
                             notifyPvInfoAll(false);
