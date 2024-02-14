@@ -24,6 +24,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.json.Json;
+import javax.json.JsonBuilderFactory;
+import javax.json.JsonObject;
 import javax.json.JsonObjectBuilder;
 
 public class ChannelManager {
@@ -130,7 +133,53 @@ public class ChannelManager {
 
     public void addValueToJSON(JsonObjectBuilder builder, DBR dbr) {
         try {
-            builder.add("value", getDbrValueAsString(dbr));
+            if (dbr.isDOUBLE()) {
+                double value = ((gov.aps.jca.dbr.DOUBLE) dbr).getDoubleValue()[0];
+                if (Double.isFinite(value)) {
+                    builder.add("value", value);
+                } else if (Double.isNaN(value)) {
+                    builder.add("value", "NaN");
+                } else {
+                    builder.add("value", "Infinity");
+                }
+            } else if (dbr.isFLOAT()) {
+                float value = ((gov.aps.jca.dbr.FLOAT) dbr).getFloatValue()[0];
+                if (Float.isFinite(value)) {
+                    builder.add("value", value);
+                } else if (Float.isNaN(value)) {
+                    builder.add("value", "NaN");
+                } else {
+                    builder.add("value", "Infinity");
+                }
+            } else if (dbr.isINT()) {
+                int value = ((gov.aps.jca.dbr.INT) dbr).getIntValue()[0];
+                builder.add("value", value);
+            } else if (dbr.isSHORT()) {
+                short value = ((gov.aps.jca.dbr.SHORT) dbr).getShortValue()[0];
+                builder.add("value", value);
+            } else if (dbr.isENUM()) {
+                short value = ((gov.aps.jca.dbr.ENUM) dbr).getEnumValue()[0];
+                builder.add("value", value);
+            } else if (dbr.isBYTE()) {
+                byte[] value = ((gov.aps.jca.dbr.BYTE) dbr).getByteValue();
+                int len = value.length;
+                if (len > 1) {
+                    // epics2web generally doesn't handle arrays,
+                    // but for BYTE[] assume that data is really "long string".
+                    // Text ends at first '\0' or end of array
+                    for (int i=0; i<len; ++i)
+                        if (value[i] == 0) {
+                            len = i;
+                            break;
+                        }
+                    builder.add("value", new String(value, 0, len, "UTF-8"));
+                }
+                else
+                    builder.add("value", value[0]);
+            } else {
+                String value = ((gov.aps.jca.dbr.STRING) dbr).getStringValue()[0];
+                builder.add("value", value);
+            }
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, "Unable to create JSON from value", e);
             builder.add("value", "");
