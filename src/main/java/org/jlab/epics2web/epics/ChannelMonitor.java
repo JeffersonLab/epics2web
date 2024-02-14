@@ -15,6 +15,7 @@ import gov.aps.jca.event.MonitorEvent;
 import gov.aps.jca.event.MonitorListener;
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.Date;
 import java.util.Set;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
@@ -27,14 +28,19 @@ import java.util.logging.Logger;
  *
  * @author slominskir
  */
-class ChannelMonitor implements Closeable {
+public class ChannelMonitor implements Closeable {
 
     private static final Logger LOGGER = Logger.getLogger(ChannelMonitor.class.getName());
 
-    public static final int PEND_IO_MILLIS = 3000;
     public static final long TIMEOUT_MILLIS = 3000;
 
     private volatile DBR lastDbr = null;
+
+    /**
+     * We don't use TIME typed DBR, so we just track 'received' timestamp (which may differ from IOC 'generated' timestamp)
+     */
+    private volatile Date lastTimestamp = null;
+
     private final AtomicReference<MonitorState> state = new AtomicReference<>(MonitorState.CONNECTING); // We don't use CAJChannel.getConnectionState() because we want to still be "connecting" during enum label fetch
     private final AtomicReference<String[]> enumLabels = new AtomicReference<>(null); // volatile arrays are unsafe due to individual indicies so use AtomicReference instead 
     private Monitor monitor = null; // Keep track of singleton monitor to avoid creating multiple on reconnect after disconnect
@@ -75,10 +81,12 @@ class ChannelMonitor implements Closeable {
         this.timeoutExecutor = timeoutExecutor;
         this.callbackExecutor = callbackExecutor;
 
-        //LOGGER.log(Level.FINEST, "Creating channel: {0}", pv);
+        long start = System.currentTimeMillis();
         channel = (CAJChannel) context.createChannel(pv, new TimedChannelConnectionListener());
-
         context.flushIO();
+        long stop = System.currentTimeMillis();
+        float elapsedSeconds = (stop - start) / 1000.0f;
+        LOGGER.log(Level.FINEST, "Created channel {0} in {1} seconds", new Object[]{pv, elapsedSeconds});
     }
 
     /**
@@ -125,6 +133,18 @@ class ChannelMonitor implements Closeable {
         return listeners.size();
     }
 
+    public MonitorState getState() {
+        return state.get();
+    }
+
+    public String getLastValue() {
+        return ChannelManager.getDbrValueAsString(lastDbr);
+    }
+
+    public Date getLastTimestamp() {
+        return lastTimestamp;
+    }
+
     /**
      * Close the ChannelMonitor.
      *
@@ -136,8 +156,12 @@ class ChannelMonitor implements Closeable {
         if (channel != null) {
             try {
                 // channel.destroy(); // method is unsafe (can deadlock)
-                // so use context method instead                
+                // so use context method instead
+                long start = System.currentTimeMillis();
                 context.destroyChannel(channel, false); // Don't force because ChannelManager.get() also uses same context!
+                long stop = System.currentTimeMillis();
+                float elapsedSeconds = (stop - start) / 1000.0f;
+                LOGGER.log(Level.FINEST, "Closed Channel {0} in {1} seconds", new Object[]{pv, elapsedSeconds});
             } catch (CAException e) {
                 throw new IOException("Unable to close channel", e);
             }
@@ -207,7 +231,7 @@ class ChannelMonitor implements Closeable {
                     boolean connected = (state.get() == MonitorState.CONNECTED);
 
                     if (!connected) {
-                        //LOGGER.log(Level.WARNING, "Unable to connect to channel (timeout)");
+                        LOGGER.log(Level.FINE, "Unable to connect to channel {0} (timeout)", pv);
 
                         notifyPvInfoAll(false);
                     }
@@ -228,7 +252,7 @@ class ChannelMonitor implements Closeable {
             callbackExecutor.submit(new Runnable(){
                 @Override
                 public void run() {
-                    //LOGGER.log(Level.FINEST, "Connection Changed - Connected: {0}", ce.isConnected());
+                    LOGGER.log(Level.FINEST, "Channel {0} Connection Changed - Connected: {1}", new Object[]{pv, ce.isConnected()});
 
                     try {
                         future.cancel(false); // only needed for initial connection, on reconnects this will result in "false" return value, which is ignored
@@ -242,8 +266,7 @@ class ChannelMonitor implements Closeable {
                                 handleRegularConnectionOrReconnect();
                             }
                         } else {
-                            //CAJChannel c = (CAJChannel) ce.getSource();
-                            //LOGGER.log(Level.WARNING, "Unable to connect to channel: {0}", c.getName());
+                            LOGGER.log(Level.FINE, "Notifying clients of disconnect from channel: {0}", pv);
 
                             state.set(MonitorState.DISCONNECTED);
                             notifyPvInfoAll(false);
@@ -265,9 +288,10 @@ class ChannelMonitor implements Closeable {
          */
         private void handleRegularConnectionOrReconnect() throws
                 IllegalStateException, CAException {
-            // Only create monitor on first connect, afterwards reconnect uses same old monitor
+            // Only create monitor on first connect, afterward reconnect uses same old monitor
             synchronized (this) {
                 if (monitor == null) {
+                    LOGGER.log(Level.FINEST, "Creating {0} Channel Monitor", pv);
                     // We generally don't handle arrays,
                     // except for BYTE[], where we assume a "long string"
                     int count = 1;
@@ -276,6 +300,8 @@ class ChannelMonitor implements Closeable {
                         count = channel.getElementCount();
                     monitor = channel.addMonitor(channel.getFieldType(), count, Monitor.VALUE, new ChannelMonitorListener());
                     context.flushIO();
+                } else {
+                    LOGGER.log(Level.FINEST, "Reusing existing {0} Channel Monitor", pv);
                 }
             }
 
@@ -291,13 +317,14 @@ class ChannelMonitor implements Closeable {
          * @throws CAException If unable to initialize
          */
         private void handleEnumConnection() throws IllegalStateException, CAException {
+            LOGGER.log(Level.FINEST, "Fetching enum labels for {0}", pv);
             channel.get(DBRType.LABELS_ENUM, 1, new TimedChannelEnumGetListener());
 
             context.flushIO();
         }
 
         /**
-         * A private inner inner class to respond to an enum label caget.
+         * A private inner class to respond to an enum label caget.
          */
         private class TimedChannelEnumGetListener implements GetListener {
 
@@ -352,6 +379,7 @@ class ChannelMonitor implements Closeable {
             DBR dbr = me.getDBR();
 
             lastDbr = dbr;
+            lastTimestamp = new Date();
 
             // Make sure handlers do not call back into CA lib on this callback thread.
             // We could call in separate thread, but that's costly and then you must
