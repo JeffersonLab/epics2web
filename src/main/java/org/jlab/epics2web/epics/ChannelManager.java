@@ -382,7 +382,7 @@ public class ChannelManager {
      *
      * @return The listener to PVs map
      */
-    public Map<PvListener, Set<String>> getClientMap() {
+    public Map<PvListener, Set<String>> getListenerMap() {
         return Collections.unmodifiableMap(clientMap);
     }
 }

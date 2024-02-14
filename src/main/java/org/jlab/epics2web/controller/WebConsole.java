@@ -8,9 +8,9 @@ import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.websocket.Session;
 import org.jlab.epics2web.Application;
 import org.jlab.epics2web.epics.ChannelMonitor;
+import org.jlab.epics2web.websocket.SessionInfo;
 import org.jlab.epics2web.websocket.WebSocketSessionManager;
 import org.jlab.epics2web.epics.ChannelManager;
 
@@ -40,7 +40,7 @@ public class WebConsole extends HttpServlet {
         
 
         Map<String, ChannelMonitor> monitorMap = channelManager.getMonitorMap();
-        Map<Session, Set<String>> clientMap = sessionManager.getClientMap();
+        Map<SessionInfo, Set<String>> clientMap = sessionManager.getClientMap();
         
         request.setAttribute("monitorMap", monitorMap);
         request.setAttribute("clientMap", clientMap);

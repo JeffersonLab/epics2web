@@ -49,11 +49,11 @@
                 <c:forEach items="${clientMap}" var="client">
                     <tr>
                         <td><c:out value="${client.key.id}"/></td>
-                        <td><c:out value="${client.key.userProperties.ip eq null ? client.key.remoteAddr : client.key.userProperties.ip}"/></td>
-                        <td><c:out value="${client.key.userProperties.agent}"/></td>
-                        <td><c:out value="${client.key.userProperties.name}"/></td>
+                        <td><c:out value="${client.key.ip}"/></td>
+                        <td><c:out value="${client.key.agent}"/></td>
+                        <td><c:out value="${client.key.name}"/></td>
                         <td>(${client.value == null ? '0' : client.value.size()}) <c:out value="${client.value}"/></td>
-                        <td><fmt:formatNumber value="${client.key.userProperties.droppedMessageCount}"/></td>
+                        <td><fmt:formatNumber value="${client.key.droppedMessageCount}"/></td>
                     </tr>
                 </c:forEach>
             </tbody>
