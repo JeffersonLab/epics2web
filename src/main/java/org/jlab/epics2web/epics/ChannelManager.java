@@ -130,7 +130,9 @@ public class ChannelManager {
 
     public void addValueToJSON(JsonObjectBuilder builder, DBR dbr) {
         try {
-            if (dbr.isDOUBLE()) {
+            if(dbr == null) {
+                builder.addNull("value"); // null happens on restart?
+            } else if (dbr.isDOUBLE()) {
                 double value = ((gov.aps.jca.dbr.DOUBLE) dbr).getDoubleValue()[0];
                 if (Double.isFinite(value)) {
                     builder.add("value", value);
