@@ -229,14 +229,33 @@ public class WebSocketSessionManager {
      *
      * @return The map
      */
-    public Map<Session, Set<String>> getClientMap() {
-        Map<PvListener, Set<String>> pvMap = Application.channelManager.getClientMap();
-        Map<Session, Set<String>> clientMap = new HashMap<>();
+    public Map<SessionInfo, Set<String>> getClientMap() {
+        Map<PvListener, Set<String>> pvMap = Application.channelManager.getListenerMap();
+        Map<SessionInfo, Set<String>> clientMap = new HashMap<>();
 
         for (Session session : listenerMap.keySet()) {
             WebSocketSessionMonitor listener = listenerMap.get(session);
             Set<String> pvSet = pvMap.get(listener);
-            clientMap.put(session, pvSet);
+
+            if(session.isOpen()) {
+                String id = null;
+
+                try {
+                    id = session.getId();
+                    String ip = (String)session.getUserProperties().get("ip");
+                    String name = (String)session.getUserProperties().get("name");
+                    String agent = (String)session.getUserProperties().get("agent");
+                    AtomicLong droppedMessageCount = (AtomicLong)session.getUserProperties().get("droppedMessageCount");
+
+                    SessionInfo info = new SessionInfo(id, ip, name, agent, droppedMessageCount.get());
+
+                    clientMap.put(info, pvSet);
+                } catch(Exception e) {
+                    // Even id may be null if closed before getId() called.  Oh well.
+                    LOGGER.log(Level.FINEST, "Session '{0}' closed while preparing info report", id);
+                    // Ignore
+                }
+            }
         }
 
         return clientMap;
