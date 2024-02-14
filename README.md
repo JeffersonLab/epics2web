@@ -54,6 +54,22 @@ PV name: `HELLO`
 
 This application uses the [Java Channel Access](https://github.com/epics-base/jca) library.   It requires a working EPICS channel access environment with the environment variable *EPICS_CA_ADDR_LIST* set.  See Also: [Advanced Configuration](https://github.com/JeffersonLab/epics2web/wiki/Advanced-Configuration).
 
+### Logging
+This app is designed to run on Tomcat so [Tomcat logging configuration](https://tomcat.apache.org/tomcat-9.0-doc/logging.html) applies.  We use the built-in JVM logging library, which Tomcat uses with some slight modifications to support separate classloaders.  In the past we bundled an application [logging.properites](https://github.com/JeffersonLab/epics2web/blob/956894699ef1b303907a04720aeb50260ffa72b1/src/main/resources/logging.properties) inside the epics2web.war file.  We no longer do that because it then appears to require redeploying a new version of the app to modify the logging config as the app bundled config overrides the global Tomcat config at conf/logging.properties.  The recommend logging strategy is to now make configuration in the global tomcat config so as to make it easy to modify logging levels.  A app specific handler can be created per app.  The global configuration location is generally set by the Tomcat default start script via JVM system properties.  The system properties should look something like: `-Djava.util.logging.config.file=/usr/share/tomcat/conf/logging.properties -Djava.util.logging.manager=org.apache.juli.ClassLoaderLogManager`.  The contents of the logging.properties should be modfied to look something like:
+
+```
+handlers = 1catalina.org.apache.juli.FileHandler, 2localhost.org.apache.juli.FileHandler, 3manager.org.apache.juli.FileHandler, 4host-manager.org.apache.juli.FileHandler, 5epics2web.org.apache.juli.FileHandler, java.util.logging.ConsoleHandler
+
+5epics2web.org.apache.juli.FileHandler.level = FINEST
+5epics2web.org.apache.juli.FileHandler.directory = ${catalina.base}/logs
+5epics2web.org.apache.juli.FileHandler.prefix = epics2web.
+
+org.jlab.epics2web.handlers = 5epics2web.org.apache.juli.FileHandler
+org.jlab.epics2web.level = ALL
+```
+
+**Note**: This is for older versions of Tomcat as newer version use an AsyncFileHandler.
+
 ## Build
 This project is built with [Java 17](https://adoptium.net/) (compiled to Java 8 bytecode), and uses the [Gradle 7](https://gradle.org/) build tool to automatically download dependencies and build the project from source:
 
