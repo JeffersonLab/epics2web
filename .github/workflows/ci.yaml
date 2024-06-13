@@ -1,0 +1,16 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - 'VERSION'
+    tags-ignore:
+      - "v*.*.*"
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    uses: jeffersonlab/java-workflows/.github/workflows/unit-ci.yaml@v2
