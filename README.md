@@ -1,4 +1,4 @@
-# epics2web [![Java CI with Gradle](https://github.com/JeffersonLab/epics2web/actions/workflows/ci.yml/badge.svg)](https://github.com/JeffersonLab/epics2web/actions/workflows/ci.yml) [![Docker](https://img.shields.io/docker/v/jeffersonlab/epics2web?sort=semver&label=DockerHub)](https://hub.docker.com/r/jeffersonlab/epics2web)
+# epics2web [![Java CI with Gradle](https://github.com/JeffersonLab/epics2web/actions/workflows/ci.yaml/badge.svg)](https://github.com/JeffersonLab/epics2web/actions/workflows/ci.yaml) [![Docker](https://img.shields.io/docker/v/jeffersonlab/epics2web?sort=semver&label=DockerHub)](https://hub.docker.com/r/jeffersonlab/epics2web)
 A gateway server and accompanying JavaScript client API to monitor EPICS Channel Access over the web.
 
 ![MonitorTest](https://github.com/JeffersonLab/epics2web/raw/main/doc/img/MonitorTest.png?raw=true "MonitorTest")
@@ -96,10 +96,10 @@ Wait for containers to start then:
 gradlew integrationTest
 ```
 ## Release
-1. Bump the version number and release date in build.gradle and commit and push to GitHub (using [Semantic Versioning](https://semver.org/)).
-2. Create a new release on the GitHub [Releases](https://github.com/JeffersonLab/epics2web/releases) page corresponding to same version in build.gradle (Enumerate changes and link issues).  Attach war file for users to download.
-3. Build and publish a new Docker image [from the GitHub tag](https://gist.github.com/slominskir/a7da801e8259f5974c978f9c3091d52c#8-build-an-image-based-of-github-tag).  GitHub is configured to do this automatically on git push of semver tag (typically part of GitHub release) or the [Publish to DockerHub](https://github.com/JeffersonLab/epics2web/actions/workflows/docker-publish.yml) action can be manually triggered after selecting a tag.
-4. Bump and commit quick start [image version](https://github.com/JeffersonLab/epics2web/blob/main/docker-compose.override.yml)
+1. Bump the version number in the VERSION file and commit and push to GitHub (using [Semantic Versioning](https://semver.org/)).
+2. The [CD](https://github.com/JeffersonLab/epics2web/blob/main/.github/workflows/cd.yaml) GitHub Action should run automatically invoking:
+    - The [Create release](https://github.com/JeffersonLab/java-workflows/blob/main/.github/workflows/gh-release.yaml) GitHub Action to tag the source and create release notes summarizing any pull requests.   Edit the release notes to add any missing details.  A war file artifact is attached to the release.
+    - The [Publish docker image](https://github.com/JeffersonLab/container-workflows/blob/main/.github/workflows/docker-publish.yaml) GitHub Action to create a new demo Docker image.
 
 ## See Also
 - [Web Extensible Display Manager (wedm)](https://github.com/JeffersonLab/wedm)
