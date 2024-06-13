@@ -1,12 +1,12 @@
 services:
   softioc:
     extends:
-      file: docker-compose.yml
+      file: compose.yaml
       service: softioc
 
   epics2web:
     extends:
-      file: docker-compose.yml
+      file: compose.yaml
       service: epics2web
     build:
       context: .

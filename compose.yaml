@@ -1,7 +1,7 @@
 services:
   softioc:
     extends:
-      file: deps.yml
+      file: deps.yaml
       service: softioc
 
   epics2web:

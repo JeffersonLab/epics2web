@@ -89,7 +89,7 @@ gradlew build
 
 ## Test
 ```
-docker compose -f build.yml up
+docker compose -f build.yaml up
 ```
 Wait for containers to start then:
 ```
