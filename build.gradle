@@ -5,12 +5,9 @@ plugins {
 
 description = "EPICS to web gateway"
 group 'org.jlab'
-version '1.17.1'
-
-ext {
-    releaseDate = 'Feb. 14 2024'
-    productionRelease = 'true'
-}
+version new File("${projectDir}/VERSION").text.trim()
+ext.releaseDate = new Date().format('MMM dd yyyy')
+ext.productionRelease = 'true'
 
 compileJava {
     options.release = 8
