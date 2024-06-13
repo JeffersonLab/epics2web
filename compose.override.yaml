@@ -1,3 +1,3 @@
 services:
   epics2web:
-    image: jeffersonlab/epics2web:1.17.1
+    image: jeffersonlab/epics2web:latest
