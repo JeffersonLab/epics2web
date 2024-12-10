@@ -54,6 +54,10 @@ PV name: `HELLO`
 
 This application uses the [Java Channel Access](https://github.com/epics-base/jca) library.   It requires a working EPICS channel access environment with the environment variable *EPICS_CA_ADDR_LIST* set.  See Also: [Advanced Configuration](https://github.com/JeffersonLab/epics2web/wiki/Advanced-Configuration).
 
+### Context Prefix
+When proxying epics2web it is sometimes useful to have multiple instances accessible via the same host via separate context paths.  In order to return correct links to resources an instance proxied with a namespacing prefix needs to be aware of the prefix.  The environment variable **CONTEXT_PREFIX** does this.  For example at Jefferson Lab we use a single proxy server for multiple departments each with their own instance of epics2web, and each configured with a prefix such as "/fel", "/chl", "/itf", and "/srf" ("/ops" uses default/empty prefix).
+
+
 ### Logging
 This app is designed to run on Tomcat so [Tomcat logging configuration](https://tomcat.apache.org/tomcat-9.0-doc/logging.html) applies.  We use the built-in JVM logging library, which Tomcat uses with some slight modifications to support separate classloaders.  In the past we bundled an application [logging.properites](https://github.com/JeffersonLab/epics2web/blob/956894699ef1b303907a04720aeb50260ffa72b1/src/main/resources/logging.properties) inside the epics2web.war file.  We no longer do that because it then appears to require repackaging/rebuilding a new version of the app to modify the logging config as the app bundled config overrides the global Tomcat config at conf/logging.properties.  The recommend logging strategy is to now make configuration in the global Tomcat config so as to make it easy to modify logging levels.  An app specific handler can be created.  The global configuration location is generally set by the Tomcat default start script via JVM system properties.  The system properties should look something like: 
 - `-Djava.util.logging.config.file=/usr/share/tomcat/conf/logging.properties`
