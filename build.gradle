@@ -1,11 +1,12 @@
 plugins {
     id 'war'
-    id ("org.gradlewebtools.minify") version "1.3.0"
+    id ("org.gradlewebtools.minify") version "2.1.1"
 }
 
 description = "EPICS to web gateway"
-group 'org.jlab'
-version new File("${projectDir}/VERSION").text.trim()
+group = 'org.jlab'
+version = new File("${projectDir}/VERSION").text.trim()
+ext.version = project.version
 ext.releaseDate = new Date().format('MMM dd yyyy')
 ext.productionRelease = 'true'
 
@@ -17,7 +18,7 @@ compileTestJava {
     options.release = 11
 }
 
-tasks.withType(JavaCompile) {
+tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.compilerArgs << "-Xlint:unchecked" << "-Xlint:deprecation"
 }
@@ -50,7 +51,7 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
 }
 
-task integrationTest(type: Test) {
+tasks.register('integrationTest', Test) {
     description = 'Runs integration tests.'
     group = 'verification'
 
@@ -59,25 +60,34 @@ task integrationTest(type: Test) {
 
     testLogging {
         events "passed", "skipped", "failed"
-        exceptionFormat "full"
+        exceptionFormat = "full"
         showStandardStreams = true
     }
 }
 
 processIntegrationResources {
-    duplicatesStrategy 'include'
+    duplicatesStrategy = 'include'
 }
 
-task cssMinifyIt(type: org.gradlewebtools.minify.CssMinifyTask) {
+tasks.register('cssMinifyIt', org.gradlewebtools.minify.CssMinifyTask) {
     srcDir = project.file("src/main/webapp/resources/css")
     dstDir = project.file("build")
 }
 
-task jsMinifyIt(type: org.gradlewebtools.minify.JsMinifyTask) {
+tasks.register('jsMinifyIt', org.gradlewebtools.minify.JsMinifyTask) {
     srcDir = project.file("src/main/webapp/resources/js")
     dstDir = project.file("build")
 }
 
+test {
+    dependsOn(cssMinifyIt)
+    dependsOn(jsMinifyIt)
+}
+
+jar {
+    dependsOn(cssMinifyIt)
+    dependsOn(jsMinifyIt)
+}
 
 war {
     dependsOn(cssMinifyIt)
@@ -85,7 +95,7 @@ war {
     archiveFileName = 'epics2web.war'
     filesMatching('WEB-INF/web.xml') {
         filter {
-            String line -> line.replaceAll("@VERSION@", project.version)
+            String line -> line.replaceAll("@VERSION@", version)
         }
         filter {
             String line -> line.replaceAll("@RELEASE_DATE@", releaseDate)
