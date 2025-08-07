@@ -86,9 +86,8 @@ test {
     dependsOn(jsMinifyIt)
 }
 
-jar {
-    dependsOn(cssMinifyIt)
-    dependsOn(jsMinifyIt)
+tasks.named('jar') {
+    enabled = false
 }
 
 war {
