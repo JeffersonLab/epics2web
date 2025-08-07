@@ -38,7 +38,7 @@ PV name: `HELLO`
 
 ## Install
    1. Download Java 8+
-   1. Download [Apache Tomcat 7, 8, or 9](http://tomcat.apache.org/)
+   1. Download [Apache Tomcat 11](http://tomcat.apache.org/)
    1. Download [epics2web.war](https://github.com/JeffersonLab/epics2web/releases) and drop it into the Tomcat webapps directory
    1. Start Tomcat and navigate your web browser to localhost:8080/epics2web
 
@@ -78,7 +78,7 @@ org.jlab.epics2web.level = ALL
 **Note**: This example is for older versions of Tomcat as newer version use an AsyncFileHandler.  Refer to your logging configuration guide for your version of Tomcat.
 
 ## Build
-This project is built with [Java 17](https://adoptium.net/) (compiled to Java 8 bytecode), and uses the [Gradle 7](https://gradle.org/) build tool to automatically download dependencies and build the project from source:
+This project is built with [Java 21](https://adoptium.net/) (compiled to Java 21 bytecode), and uses the [Gradle 9](https://gradle.org/) build tool to automatically download dependencies and build the project from source:
 
 ```
 git clone https://github.com/JeffersonLab/epics2web
