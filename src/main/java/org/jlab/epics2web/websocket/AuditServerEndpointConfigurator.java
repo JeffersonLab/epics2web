@@ -1,11 +1,11 @@
 package org.jlab.epics2web.websocket;
 
-import java.util.List;
-import java.util.Map;
 import jakarta.servlet.http.HttpSession;
 import jakarta.websocket.HandshakeResponse;
 import jakarta.websocket.server.HandshakeRequest;
 import jakarta.websocket.server.ServerEndpointConfig;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Web socket configuration class. This is necessary to obtain connection headers and remote address
@@ -15,15 +15,16 @@ import jakarta.websocket.server.ServerEndpointConfig;
  */
 public class AuditServerEndpointConfigurator extends ServerEndpointConfig.Configurator {
 
-    @Override
-    public void modifyHandshake(ServerEndpointConfig config, HandshakeRequest request,
-            HandshakeResponse response) {
+  @Override
+  public void modifyHandshake(
+      ServerEndpointConfig config, HandshakeRequest request, HandshakeResponse response) {
 
-        Map<String, List<String>> headers = request.getHeaders();
-        String remoteAddr = (String) ((HttpSession) request.getHttpSession()).getAttribute(
-                "remoteAddr");
+    Map<String, List<String>> headers = request.getHeaders();
+    String remoteAddr =
+        (String) ((HttpSession) request.getHttpSession()).getAttribute("remoteAddr");
 
-        // We don't use config.getUserProperties.add because it isn't one-to-one with a web socket connection
-        WebSocketAuditContext.setCurrentInstance(new WebSocketAuditContext(headers, remoteAddr));
-    }
+    // We don't use config.getUserProperties.add because it isn't one-to-one with a web socket
+    // connection
+    WebSocketAuditContext.setCurrentInstance(new WebSocketAuditContext(headers, remoteAddr));
+  }
 }

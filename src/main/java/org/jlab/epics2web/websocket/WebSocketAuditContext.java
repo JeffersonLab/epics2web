@@ -12,69 +12,67 @@ import java.util.Map;
  */
 public class WebSocketAuditContext {
 
-    private final Map<String, List<String>> headers;
-    private final String remoteAddr;
+  private final Map<String, List<String>> headers;
+  private final String remoteAddr;
 
-    /**
-     * Create a new WebSocketAuditContext.
-     *
-     * @param headers The request headers
-     * @param remoteAddr The remote address
-     */
-    public WebSocketAuditContext(Map<String, List<String>> headers, String remoteAddr) {
-        this.headers = headers;
-        this.remoteAddr = remoteAddr;
-    }
+  /**
+   * Create a new WebSocketAuditContext.
+   *
+   * @param headers The request headers
+   * @param remoteAddr The remote address
+   */
+  public WebSocketAuditContext(Map<String, List<String>> headers, String remoteAddr) {
+    this.headers = headers;
+    this.remoteAddr = remoteAddr;
+  }
 
-    /**
-     * Return the request headers.
-     *
-     * @return The headers
-     */
-    public Map<String, List<String>> getHeaders() {
-        return headers;
-    }
+  /**
+   * Return the request headers.
+   *
+   * @return The headers
+   */
+  public Map<String, List<String>> getHeaders() {
+    return headers;
+  }
 
-    /**
-     * Return the remote address.
-     *
-     * @return The remote address
-     */
-    public String getRemoteAddr() {
-        return remoteAddr;
-    }
+  /**
+   * Return the remote address.
+   *
+   * @return The remote address
+   */
+  public String getRemoteAddr() {
+    return remoteAddr;
+  }
 
-    /**
-     * The ThreadLocal instance.
-     */
-    private static final ThreadLocal<WebSocketAuditContext> INSTANCE
-            = new ThreadLocal<WebSocketAuditContext>() {
+  /** The ThreadLocal instance. */
+  private static final ThreadLocal<WebSocketAuditContext> INSTANCE =
+      new ThreadLocal<WebSocketAuditContext>() {
 
         @Override
         protected WebSocketAuditContext initialValue() {
-            return null;
+          return null;
         }
-    };
+      };
 
-    /**
-     * Return the audit context instance.
-     * 
-     * @return The audit context instance
-     */
-    public static WebSocketAuditContext getCurrentInstance() {
-        return INSTANCE.get();
-    }
+  /**
+   * Return the audit context instance.
+   *
+   * @return The audit context instance
+   */
+  public static WebSocketAuditContext getCurrentInstance() {
+    return INSTANCE.get();
+  }
 
-    /**
-     * Set the current audit context instance.
-     * 
-     * @param context The audit context instance
-     */
-    public static void setCurrentInstance(WebSocketAuditContext context) {
-        if (context == null) {
-            INSTANCE.remove();
-        } else {
-            INSTANCE.set(context);
-        }
+  /**
+   * Set the current audit context instance.
+   *
+   * @param context The audit context instance
+   */
+  public static void setCurrentInstance(WebSocketAuditContext context) {
+    if (context == null) {
+      INSTANCE.remove();
+    } else {
+      INSTANCE.set(context);
     }
+  }
 }

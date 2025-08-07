@@ -16,18 +16,15 @@ import jakarta.servlet.http.HttpSession;
 @WebListener
 public class RequestListener implements ServletRequestListener {
 
-    @Override
-    public void requestDestroyed(ServletRequestEvent sre) {
+  @Override
+  public void requestDestroyed(ServletRequestEvent sre) {}
 
-    }
+  @Override
+  public void requestInitialized(ServletRequestEvent sre) {
+    HttpServletRequest request = (HttpServletRequest) sre.getServletRequest();
 
-    @Override
-    public void requestInitialized(ServletRequestEvent sre) {
-        HttpServletRequest request = (HttpServletRequest) sre.getServletRequest();
+    HttpSession session = request.getSession();
 
-        HttpSession session = request.getSession();
-
-        session.setAttribute("remoteAddr", request.getRemoteAddr());
-    }
-
+    session.setAttribute("remoteAddr", request.getRemoteAddr());
+  }
 }

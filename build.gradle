@@ -1,6 +1,7 @@
 plugins {
     id 'war'
-    id ("org.gradlewebtools.minify") version "2.1.1"
+    id 'org.gradlewebtools.minify' version '2.1.1'
+    id 'com.diffplug.spotless' version '7.2.1'
 }
 
 description = "EPICS to web gateway"
@@ -112,5 +113,11 @@ war {
     from('build') {
         include '*.min.js'
         into 'resources/js/'
+    }
+}
+
+spotless {
+    java {
+        googleJavaFormat()
     }
 }

@@ -2,8 +2,8 @@ package org.jlab.epics2web.websocket;
 
 import gov.aps.jca.dbr.DBR;
 import gov.aps.jca.dbr.DBRType;
-import java.util.logging.Logger;
 import jakarta.websocket.Session;
+import java.util.logging.Logger;
 import org.jlab.epics2web.epics.PvListener;
 
 /**
@@ -13,44 +13,44 @@ import org.jlab.epics2web.epics.PvListener;
  */
 public class WebSocketSessionMonitor implements PvListener {
 
-    private static final Logger LOGGER = Logger.getLogger(WebSocketSessionMonitor.class.getName());
+  private static final Logger LOGGER = Logger.getLogger(WebSocketSessionMonitor.class.getName());
 
-    private final Session session;
-    private final WebSocketSessionManager manager;
+  private final Session session;
+  private final WebSocketSessionManager manager;
 
-    /**
-     * Create a new WebSocketSessionMonitor.
-     *
-     * @param session The web socket session
-     * @param manager The session manager
-     */
-    public WebSocketSessionMonitor(Session session, WebSocketSessionManager manager) {
-        this.session = session;
-        this.manager = manager;
+  /**
+   * Create a new WebSocketSessionMonitor.
+   *
+   * @param session The web socket session
+   * @param manager The session manager
+   */
+  public WebSocketSessionMonitor(Session session, WebSocketSessionManager manager) {
+    this.session = session;
+    this.manager = manager;
+  }
+
+  @Override
+  public void notifyPvInfo(
+      String pv, boolean couldConnect, DBRType type, Integer count, String[] enumLabels) {
+    manager.sendInfo(session, pv, couldConnect, type, count, enumLabels);
+  }
+
+  @Override
+  public void notifyPvUpdate(String pv, DBR dbr) {
+    manager.sendUpdate(session, pv, dbr);
+  }
+
+  @Override
+  public String toString() {
+    String description = "WebSession: ";
+    if (session != null) {
+      String name = (String) session.getUserProperties().get("name");
+      String host = (String) session.getUserProperties().get("ip");
+      if (host == null) {
+        host = (String) session.getUserProperties().get("remoteAddr");
+      }
+      description = description + host + "; " + name;
     }
-
-    @Override
-    public void notifyPvInfo(String pv, boolean couldConnect, DBRType type, Integer count,
-            String[] enumLabels) {
-        manager.sendInfo(session, pv, couldConnect, type, count, enumLabels);
-    }
-
-    @Override
-    public void notifyPvUpdate(String pv, DBR dbr) {
-        manager.sendUpdate(session, pv, dbr);
-    }
-
-    @Override
-    public String toString() {
-        String description = "WebSession: ";
-        if (session != null) {
-            String name = (String) session.getUserProperties().get("name");
-            String host = (String) session.getUserProperties().get("ip");
-            if (host == null) {
-                host = (String) session.getUserProperties().get("remoteAddr");
-            }
-            description = description + host + "; " + name;
-        }
-        return description;
-    }
+    return description;
+  }
 }
