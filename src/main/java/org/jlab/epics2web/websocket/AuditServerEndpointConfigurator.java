@@ -2,10 +2,10 @@ package org.jlab.epics2web.websocket;
 
 import java.util.List;
 import java.util.Map;
-import javax.servlet.http.HttpSession;
-import javax.websocket.HandshakeResponse;
-import javax.websocket.server.HandshakeRequest;
-import javax.websocket.server.ServerEndpointConfig;
+import jakarta.servlet.http.HttpSession;
+import jakarta.websocket.HandshakeResponse;
+import jakarta.websocket.server.HandshakeRequest;
+import jakarta.websocket.server.ServerEndpointConfig;
 
 /**
  * Web socket configuration class. This is necessary to obtain connection headers and remote address

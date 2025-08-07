@@ -11,11 +11,11 @@ ext.releaseDate = new Date().format('MMM dd yyyy')
 ext.productionRelease = 'true'
 
 compileJava {
-    options.release = 8
+    options.release = 21
 }
 
 compileTestJava {
-    options.release = 11
+    options.release = 21
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -42,12 +42,13 @@ configurations {
 }
 
 dependencies {
-    implementation 'javax.servlet:jstl:1.2',
-                   'org.glassfish:javax.json:1.1.4',
-                   files('lib/jca-2.4.6.jar')
-    //implementation 'org.epics:jca:2.4.6' // Only works with Java 11 runtime
-    providedCompile 'javax:javaee-api:7.0'
-
+    implementation 'jakarta.servlet.jsp.jstl:jakarta.servlet.jsp.jstl-api:3.0.0',
+                   'org.glassfish.web:jakarta.servlet.jsp.jstl:3.0.0',
+                   'org.glassfish:jakarta.json:2.0.1',
+                   'org.epics:jca:2.4.10'
+    providedCompile 'jakarta.servlet:jakarta.servlet-api:6.1.0',
+                    'jakarta.websocket:jakarta.websocket-api:2.2.0',
+                    'jakarta.websocket:jakarta.websocket-client-api:2.2.0'
     testImplementation 'junit:junit:4.13.2'
 }
 

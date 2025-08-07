@@ -5,8 +5,6 @@ import gov.aps.jca.CAException;
 import gov.aps.jca.JCALibrary;
 import gov.aps.jca.configuration.DefaultConfiguration;
 
-import javax.enterprise.inject.Default;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**

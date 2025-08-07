@@ -2,7 +2,7 @@ package org.jlab.epics2web.websocket;
 
 /**
  * This class provides a snapshot of websocket information that will not throw Exceptions if you try to interrogate it
- * after the session happens to have closed.  There is a race condition if you hand a list of javax.websocket.Session
+ * after the session happens to have closed.  There is a race condition if you hand a list of jakarta.websocket.Session
  * objects to a debug console for example as if the session happens to close between the time you return it and the
  * time the debug console calls the userProperties method for example you get an exception.
  */

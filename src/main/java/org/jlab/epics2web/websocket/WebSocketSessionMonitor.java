@@ -3,7 +3,7 @@ package org.jlab.epics2web.websocket;
 import gov.aps.jca.dbr.DBR;
 import gov.aps.jca.dbr.DBRType;
 import java.util.logging.Logger;
-import javax.websocket.Session;
+import jakarta.websocket.Session;
 import org.jlab.epics2web.epics.PvListener;
 
 /**
