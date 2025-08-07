@@ -13,7 +13,7 @@ RUN if [ -z "${CUSTOM_CRT_URL}" ] ; then echo "No custom cert needed"; else \
        && export OPTIONAL_CERT_ARG=--cert=/etc/ssl/certs/ca-certificates.crt \
     ; fi
 COPY . /app
-RUN cd /app && gradle build -x test --no-watch-fs $OPTIONAL_CERT_ARG
+RUN cd /app && gradle build -x test -x spotlessJavaCheck --no-watch-fs $OPTIONAL_CERT_ARG
 
 ################## Stage 1
 FROM ${RUN_IMAGE} AS runner
