@@ -1,0 +1,4 @@
+# Auto-detect text and force to LF (UNIX).  Otherwise, when mounting files from Windows to UNIX Containers (Docker build) problems arise, especially with Spotless file checker
+* text=auto eol=lf
+*.png binary
+*.bat text eol=crlf
