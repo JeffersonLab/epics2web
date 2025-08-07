@@ -1,8 +1,8 @@
-ARG BUILD_IMAGE=gradle:7.4-jdk17-alpine
-ARG RUN_IMAGE=tomcat:9.0.68-jre8
+ARG BUILD_IMAGE=gradle:9-jdk21-alpine
+ARG RUN_IMAGE=tomcat:11-jdk21
 
 ################## Stage 0
-FROM ${BUILD_IMAGE} as builder
+FROM ${BUILD_IMAGE} AS builder
 ARG CUSTOM_CRT_URL
 USER root
 WORKDIR /
@@ -16,7 +16,7 @@ COPY . /app
 RUN cd /app && gradle build -x test --no-watch-fs $OPTIONAL_CERT_ARG
 
 ################## Stage 1
-FROM ${RUN_IMAGE} as runner
+FROM ${RUN_IMAGE} AS runner
 ARG CUSTOM_CRT_URL
 ARG RUN_USER=tomcat
 ARG APP_HOME=/usr/local/tomcat/webapps
