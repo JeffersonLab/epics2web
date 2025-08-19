@@ -11,6 +11,9 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build:
     uses: jeffersonlab/java-workflows/.github/workflows/unit-ci.yaml@v2
