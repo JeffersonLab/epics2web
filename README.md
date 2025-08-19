@@ -12,6 +12,7 @@ A gateway server and accompanying JavaScript client API to monitor EPICS Channel
 - [Build](https://github.com/JeffersonLab/epics2web#build) 
 - [Test](https://github.com/JeffersonLab/epics2web#test)
 - [Release](https://github.com/JeffersonLab/epics2web#release)
+- [Deploy](https://github.com/JeffersonLab/epics2web#deploy) 
 - [See Also](https://github.com/JeffersonLab/epics2web#see-also)
 ---
 
@@ -104,6 +105,23 @@ gradlew integrationTest
 2. The [CD](https://github.com/JeffersonLab/epics2web/blob/main/.github/workflows/cd.yaml) GitHub Action should run automatically invoking:
     - The [Create release](https://github.com/JeffersonLab/java-workflows/blob/main/.github/workflows/gh-release.yaml) GitHub Action to tag the source and create release notes summarizing any pull requests.   Edit the release notes to add any missing details.  A war file artifact is attached to the release.
     - The [Publish docker image](https://github.com/JeffersonLab/container-workflows/blob/main/.github/workflows/docker-publish.yaml) GitHub Action to create a new demo Docker image.
+
+## Deploy
+At JLab this app is found at [epicsweb.jlab.org/epics2web](https://epicsweb.jlab.org/epics2web/).  However, the epicsweb server is a proxy for `tomcat1.acc.jlab.org`.    Use wget or the like to grab the release war file.  Don't download directly into webapps dir as file scanner may attempt to deploy before fully downloaded.  Be careful of previous war file as by default wget won't overrwite.  The war file should be attached to each release, so right click it and copy location (or just update version in path provided in the example below).
+
+A script is provided to automate the deployment. As root run:
+```
+cd /root/setup
+./deploy.sh epics2web {version}
+```
+
+Or manually execute:
+```
+cd /tmp
+rm epics2web.war
+wget https://github.com/JeffersonLab/wmenu/releases/download/v1.2.3/epics2web.war
+mv  epics2web.war /opt/tomcat/current/webapps
+```
 
 ## See Also
 - [Web Extensible Display Manager (wedm)](https://github.com/JeffersonLab/wedm)
