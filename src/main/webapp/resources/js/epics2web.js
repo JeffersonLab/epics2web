@@ -40,7 +40,7 @@ jlab.epics2web.ClientConnection = function (options) {
         pingIntervalMillis: 3000, /* Time to wait between pings */
         livenessTimoutMillis: 2000, /* Max time allowed for server to respond to a ping (via any message) */
         reconnectWaitMillis: 1000, /* Time to wait after socket closed before attempting reconnect */
-        chunkedRequestPvsCount: 400, /* Max number of PVs to transmit in a chunked monitor or clear command; 0 to disable chunking */
+        chunkedRequestMaxBytes: 8000, /* Max number of bytes to transmit in a chunked monitor or clear command; 0 to disable chunking.  Tomcat default server-side is usually 8KB */
         clientName: window.location.href /* Client name is a string used for informational/debugging purposes (appears in console) */
     };
 
@@ -228,12 +228,64 @@ jlab.epics2web.ClientConnection = function (options) {
         }
     };
 
+    // JSON Stringify may escape characters with backslash or encode with UNICODE escapes, so we must stringify first.
+    // Stringify adds double quotes that surround String too (2 more bytes)
+    this.getJSONByteSize = function(str) {
+        return new TextEncoder().encode(JSON.stringify(str)).length;
+    }
+
+    this.chunkJSONStringArray = function(strArray, maxBytes) {
+        if (!strArray || strArray.length === 0) {
+            return [];
+        }
+
+        if(maxBytes < 0) {
+            throw new Error('maxBytes must be greater than 0');
+        }
+
+        const result = [];
+        const delimiterBytes = 1; // Comma delimiter prefix before all but first item
+        let currentChunk = [];
+        let currentByteSize = 0;
+
+        for (const str of strArray) {
+            const stringByteSize = this.getJSONByteSize(str);
+
+            const newChunkSize = currentByteSize + stringByteSize + (currentChunk.length > 0 ? delimiterBytes : 0);
+
+            if(currentChunk.length === 0 && newChunkSize > maxBytes) {
+                throw new Error('Single item larger than maxBytes: ' + str + ' has byte size: ' + stringByteSize);
+            }
+
+            if (newChunkSize > maxBytes && currentChunk.length > 0) {
+                // Current chunk would be too big, so save it and start a new one.
+                result.push(currentChunk);
+                currentChunk = [str];
+                currentByteSize = stringByteSize;
+            } else {
+                // Add the string to the current chunk.
+                currentChunk.push(str);
+                currentByteSize += stringByteSize;
+                if (currentChunk.length > 1) {
+                    currentByteSize += delimiterBytes;
+                }
+            }
+        }
+
+        // Add the last chunk if it's not empty.
+        if (currentChunk.length > 0) {
+            result.push(currentChunk);
+        }
+
+        return result;
+    };
+
     this.monitorPvs = function (pvs) {
-        if (self.chunkedRequestPvsCount > 0) {
-            var i, j, chunk;
-            for (i = 0, j = pvs.length; i < j; i += self.chunkedRequestPvsCount) {
-                chunk = pvs.slice(i, i + self.chunkedRequestPvsCount);
-                this.monitorPvsChunk(chunk);
+        if (self.chunkedRequestMaxBytes > 0) {
+            var maxBytesPerChunk = self.chunkedRequestMaxBytes - 27; // String JSON message '{"type":"monitor","pvs":[]}' with empty pvs is 27 bytes.
+            var chunks = this.chunkJSONStringArray(pvs, maxBytesPerChunk);
+            for (let i = 0; i < chunks.length; i++) {
+                this.monitorPvsChunk(chunks[i]);
             }
         } else {
             this.monitorPvsChunk(pvs);
@@ -246,11 +298,11 @@ jlab.epics2web.ClientConnection = function (options) {
     };
 
     this.clearPvs = function (pvs) {
-        if (self.chunkedRequestPvsCount > 0) {
-            var i, j, chunk;
-            for (i = 0, j = pvs.length; i < j; i += self.chunkedRequestPvsCount) {
-                chunk = pvs.slice(i, i + self.chunkedRequestPvsCount);
-                this.clearPvsChunk(chunk);
+        if (self.chunkedRequestMaxBytes > 0) {
+            var maxBytesPerChunk = self.chunkedRequestMaxBytes - 25; // String JSON message '{"type":"clear","pvs":[]}' with empty pvs is 25 bytes.
+            var chunks = this.chunkJSONStringArray(pvs, maxBytesPerChunk);
+            for (let i = 0; i < chunks.length; i++) {
+                this.clearPvsChunk(chunks[i]);
             }
         } else {
             this.clearPvsChunk(pvs);
