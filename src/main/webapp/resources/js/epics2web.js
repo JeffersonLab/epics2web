@@ -40,7 +40,7 @@ jlab.epics2web.ClientConnection = function (options) {
         pingIntervalMillis: 3000, /* Time to wait between pings */
         livenessTimoutMillis: 2000, /* Max time allowed for server to respond to a ping (via any message) */
         reconnectWaitMillis: 1000, /* Time to wait after socket closed before attempting reconnect */
-        chunkedRequestMaxBytes: 8000, /* Max number of bytes to transmit in a chunked monitor or clear command; 0 to disable chunking.  Tomcat default server-side is usually 8KB */
+        chunkedRequestMaxBytes: 8192, /* Max number of bytes to transmit in a chunked monitor or clear command; 0 to disable chunking.  Tomcat default server-side is usually 8KiB */
         clientName: window.location.href /* Client name is a string used for informational/debugging purposes (appears in console) */
     };
 

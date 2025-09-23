@@ -22,11 +22,12 @@
     </env-entry> 
     <context-param>
         <param-name>org.apache.tomcat.websocket.textBufferSize</param-name>
-        <param-value>16384</param-value>
+        <param-value>8192</param-value>
+        <description>Ensure Tomcat allows 8KiB messages</description>
     </context-param>
     <context-param>
         <param-name>org.apache.tomcat.websocket.binaryBufferSize</param-name>
-        <param-value>16384</param-value>
+        <param-value>8192</param-value>
     </context-param>    
     <session-config>
         <session-timeout>30</session-timeout>
