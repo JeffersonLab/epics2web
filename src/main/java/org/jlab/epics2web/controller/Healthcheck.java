@@ -8,10 +8,6 @@ import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.jlab.epics2web.Application;
-import org.jlab.epics2web.epics.ChannelManager;
-import org.jlab.epics2web.epics.ChannelMonitor;
-
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.time.Duration;
@@ -19,11 +15,13 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.jlab.epics2web.Application;
+import org.jlab.epics2web.epics.ChannelManager;
+import org.jlab.epics2web.epics.ChannelMonitor;
 
 /**
- * Controller for Healthcheck page.
- * Return 200 OK, for healthy
- * Return 503 Service Unavailable for unhealthy (or ANYTHING non 200-299).
+ * Controller for Healthcheck page. Return 200 OK, for healthy Return 503 Service Unavailable for
+ * unhealthy (or ANYTHING non 200-299).
  *
  * @author slominskir
  */
@@ -55,21 +53,24 @@ public class Healthcheck extends HttpServlet {
 
     JsonArrayBuilder unhealthyChannelArray = Json.createArrayBuilder();
 
-    for(Map.Entry<String, ChannelMonitor> entry : monitorMap.entrySet()) {
+    for (Map.Entry<String, ChannelMonitor> entry : monitorMap.entrySet()) {
       String pv = entry.getKey();
       ChannelMonitor monitor = entry.getValue();
 
-      // If never an update, then we assume PV doesn't exist.  Might miss some cases.  Better than nothing health check!
-      if(monitor.getLastTimestamp() != null) {
+      // If never an update, then we assume PV doesn't exist.  Might miss some cases.  Better than
+      // nothing health check!
+      if (monitor.getLastTimestamp() != null) {
         Instant lastTimestamp = monitor.getLastTimestamp().toInstant();
         Duration duration = Duration.between(now, lastTimestamp);
         long differenceInSeconds = Math.abs(duration.toSeconds());
 
-        if (monitor.getState() != ChannelMonitor.MonitorState.CONNECTED && (differenceInSeconds > 30)) {
+        if (monitor.getState() != ChannelMonitor.MonitorState.CONNECTED
+            && (differenceInSeconds > 30)) {
           healthy = false;
           JsonObjectBuilder unhealthyChannel = Json.createObjectBuilder();
           unhealthyChannel.add("name", pv);
-          unhealthyChannel.add("disconnected_minutes", String.format("%.1f", differenceInSeconds / 60.0));
+          unhealthyChannel.add(
+              "disconnected_minutes", String.format("%.1f", differenceInSeconds / 60.0));
           unhealthyChannelArray.add(unhealthyChannel);
         }
       }
