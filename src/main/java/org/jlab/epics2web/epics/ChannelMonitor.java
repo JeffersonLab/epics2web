@@ -62,7 +62,7 @@ public class ChannelMonitor implements Closeable {
   private final ExecutorService callbackExecutor;
   private final String pv;
 
-  enum MonitorState {
+  public enum MonitorState {
     CONNECTING,
     CONNECTED,
     DISCONNECTED;
