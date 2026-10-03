@@ -102,6 +102,8 @@ Then:
 gradlew integrationTest
 ```
 **Note**: Outside JLab, build the image without the JLab CA certificate first: `docker compose -f build.yaml build --build-arg CUSTOM_CRT_URL=`
+
+CI runs both on every pull request.
 ## Release
 1. Bump the version number in the VERSION file and commit and push to GitHub (using [Semantic Versioning](https://semver.org/)).
 2. The [CD](https://github.com/JeffersonLab/epics2web/blob/main/.github/workflows/cd.yaml) GitHub Action should run automatically invoking:
