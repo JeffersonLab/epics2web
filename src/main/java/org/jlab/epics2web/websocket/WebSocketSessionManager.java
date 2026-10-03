@@ -20,6 +20,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.jlab.epics2web.Application;
+import org.jlab.epics2web.epics.ChannelManager;
 import org.jlab.epics2web.epics.PvListener;
 
 /**
@@ -33,8 +34,19 @@ public class WebSocketSessionManager {
 
   private final JsonBuilderFactory factory = Json.createBuilderFactory(null);
 
+  private final ChannelManager channelManager;
+
   /*ConcurrentHashMap provides thread safety on map of listeners*/
   final Map<Session, WebSocketSessionMonitor> listenerMap = new ConcurrentHashMap<>();
+
+  /**
+   * Create a new WebSocketSessionManager.
+   *
+   * @param channelManager The channel manager that monitors PVs for sessions
+   */
+  public WebSocketSessionManager(ChannelManager channelManager) {
+    this.channelManager = channelManager;
+  }
 
   /**
    * Send a pong reply. This is generally done in response to a client ping.
@@ -179,7 +191,7 @@ public class WebSocketSessionManager {
 
       for (String pv : pvSet) {
         try {
-          Application.channelManager.addPv(listener, pv);
+          channelManager.addPv(listener, pv);
         } catch (CAException e) {
           LOGGER.log(Level.WARNING, "Unable to addPv: " + pv, e);
           // TODO: Retry?
@@ -207,10 +219,10 @@ public class WebSocketSessionManager {
       }
 
       for (String pv : pvSet) {
-        Application.channelManager.removePv(listener, pv);
+        channelManager.removePv(listener, pv);
       }
     } else { // pvSet == null (removeAll)
-      Application.channelManager.removeAll(listener);
+      channelManager.removeAll(listener);
     }
   }
 
@@ -220,7 +232,7 @@ public class WebSocketSessionManager {
    * @return The map
    */
   public Map<SessionInfo, Set<String>> getClientMap() {
-    Map<PvListener, Set<String>> pvMap = Application.channelManager.getListenerMap();
+    Map<PvListener, Set<String>> pvMap = channelManager.getListenerMap();
     Map<SessionInfo, Set<String>> clientMap = new HashMap<>();
 
     for (Session session : listenerMap.keySet()) {
@@ -317,7 +329,7 @@ public class WebSocketSessionManager {
     JsonObjectBuilder builder = factory.createObjectBuilder();
 
     builder.add("type", "update").add("pv", pv);
-    Application.channelManager.addValueToJSON(builder, dbr);
+    channelManager.addValueToJSON(builder, dbr);
     JsonObject obj = builder.build();
     String msg = obj.toString();
     send(session, pv, msg);

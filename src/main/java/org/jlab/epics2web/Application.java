@@ -43,7 +43,7 @@ public class Application implements ServletContextListener {
   public static final int WRITE_QUEUE_SIZE_LIMIT = 2000;
 
   public static ChannelManager channelManager = null;
-  public static WebSocketSessionManager sessionManager = new WebSocketSessionManager();
+  public static WebSocketSessionManager sessionManager = null;
 
   private static final int TIMEOUT_EXECUTOR_POOL_SIZE = 1;
   private static final Logger LOGGER = Logger.getLogger(Application.class.getName());
@@ -121,6 +121,7 @@ public class Application implements ServletContextListener {
         Executors.newCachedThreadPool(new CustomPrefixThreadFactory("Web-Socket-Writer-"));
     resetExecutor = Executors.newSingleThreadExecutor(new CustomPrefixThreadFactory("Resetter-"));
     channelManager = new ChannelManager(context, timeoutExecutor, callbackExecutor);
+    sessionManager = new WebSocketSessionManager(channelManager);
 
     try {
       registerContextListeners(context);
