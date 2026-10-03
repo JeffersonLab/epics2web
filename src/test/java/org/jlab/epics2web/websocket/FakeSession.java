@@ -5,7 +5,6 @@ import jakarta.websocket.Session;
 import java.io.IOException;
 import java.lang.reflect.Proxy;
 import java.util.Map;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -17,7 +16,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 class FakeSession {
 
-  final ArrayBlockingQueue<String> writeQueue;
+  final WriteQueue writeQueue;
   final Map<String, Object> userProperties = new ConcurrentHashMap<>();
   final Session session;
   volatile boolean open = true;
@@ -26,7 +25,7 @@ class FakeSession {
   final AtomicInteger pings = new AtomicInteger();
 
   FakeSession(String id, int queueSize) {
-    writeQueue = new ArrayBlockingQueue<>(queueSize);
+    writeQueue = new WriteQueue(queueSize);
     userProperties.put("writequeue", writeQueue);
     userProperties.put("droppedMessageCount", new AtomicLong());
 

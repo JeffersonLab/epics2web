@@ -20,7 +20,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -112,8 +111,7 @@ public class MonitorEndpoint {
         session.getUserProperties().put("isWriting", new AtomicBoolean(false));
         session.getUserProperties().put("writequeue", new ConcurrentLinkedQueue());
       } else if (Application.WRITE_STRATEGY == WriteStrategy.BLOCKING_QUEUE) {
-        ArrayBlockingQueue<String> writequeue =
-            new ArrayBlockingQueue<>(Application.WRITE_QUEUE_SIZE_LIMIT);
+        WriteQueue writequeue = new WriteQueue(Application.WRITE_QUEUE_SIZE_LIMIT);
         session.getUserProperties().put("writequeue", writequeue);
         Future<?> writeThreadFuture = Application.writeFromBlockingQueue(session);
         session.getUserProperties().put("writeThreadFuture", writeThreadFuture);

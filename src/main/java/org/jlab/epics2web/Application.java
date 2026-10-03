@@ -16,7 +16,6 @@ import jakarta.websocket.SendResult;
 import jakarta.websocket.Session;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -30,6 +29,7 @@ import java.util.logging.Logger;
 import org.jlab.epics2web.epics.ChannelManager;
 import org.jlab.epics2web.epics.ContextFactory;
 import org.jlab.epics2web.websocket.WebSocketSessionManager;
+import org.jlab.epics2web.websocket.WriteQueue;
 import org.jlab.epics2web.websocket.WriteStrategy;
 
 /**
@@ -97,8 +97,8 @@ public class Application implements ServletContextListener {
           @Override
           public void run() {
             final String id = session.getId() + " / " + session.getUserProperties().get("ip");
-            final ArrayBlockingQueue<String> writequeue =
-                (ArrayBlockingQueue<String>) session.getUserProperties().get("writequeue");
+            final WriteQueue writequeue =
+                (WriteQueue) session.getUserProperties().get("writequeue");
             try {
               while (true) {
                 if (session.isOpen()) {
