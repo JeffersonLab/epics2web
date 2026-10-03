@@ -73,12 +73,12 @@ processIntegrationResources {
 
 tasks.register('cssMinifyIt', org.gradlewebtools.minify.CssMinifyTask) {
     srcDir = project.file("src/main/webapp/resources/css")
-    dstDir = project.file("build")
+    dstDir = project.file("build/minified")
 }
 
 tasks.register('jsMinifyIt', org.gradlewebtools.minify.JsMinifyTask) {
     srcDir = project.file("src/main/webapp/resources/js")
-    dstDir = project.file("build")
+    dstDir = project.file("build/minified")
 }
 
 test {
@@ -105,11 +105,11 @@ war {
             String line -> line.replaceAll("@PRODUCTION_RELEASE@", productionRelease)
         }
     }
-    from('build') {
+    from('build/minified') {
         include '*.min.css'
         into 'resources/css/'
     }
-    from('build') {
+    from('build/minified') {
         include '*.min.js'
         into 'resources/js/'
     }
