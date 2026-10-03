@@ -34,15 +34,12 @@ public class WebSocketSessionManager {
 
   private static final Logger LOGGER = Logger.getLogger(WebSocketSessionManager.class.getName());
 
-  /** How often the server pings sessions and purges stale ones. */
-  public static final long PING_INTERVAL_SECONDS = 30;
-
-  /** A session with no message or pong for this long is closed. */
-  public static final Duration STALE_AFTER = Duration.ofSeconds(60);
-
   private final JsonBuilderFactory factory = Json.createBuilderFactory(null);
 
   private final ChannelManager channelManager;
+
+  /** A session with no message or pong for this long is closed. */
+  private final Duration staleAfter;
 
   /*ConcurrentHashMap provides thread safety on map of listeners*/
   final Map<Session, WebSocketSessionMonitor> listenerMap = new ConcurrentHashMap<>();
@@ -51,9 +48,11 @@ public class WebSocketSessionManager {
    * Create a new WebSocketSessionManager.
    *
    * @param channelManager The channel manager that monitors PVs for sessions
+   * @param staleAfter How long a session may go without a message or pong before it is closed
    */
-  public WebSocketSessionManager(ChannelManager channelManager) {
+  public WebSocketSessionManager(ChannelManager channelManager, Duration staleAfter) {
     this.channelManager = channelManager;
+    this.staleAfter = staleAfter;
   }
 
   /**
@@ -71,12 +70,12 @@ public class WebSocketSessionManager {
 
   /**
    * Close and remove sessions that are closed already, or that haven't sent a message or pong for
-   * STALE_AFTER. Run every PING_INTERVAL_SECONDS, together with pingAllSessions.
+   * staleAfter. Run periodically, together with pingAllSessions.
    *
    * @param executor Runs the closes, which can block on an unresponsive client
    */
   public void purgeStaleSessions(Executor executor) {
-    Instant cutoff = Instant.now().minus(STALE_AFTER);
+    Instant cutoff = Instant.now().minus(staleAfter);
 
     for (Session s : listenerMap.keySet()) {
       if (isStale(s, cutoff)) {
