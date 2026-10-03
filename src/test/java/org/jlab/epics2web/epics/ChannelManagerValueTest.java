@@ -1,10 +1,10 @@
 package org.jlab.epics2web.epics;
 
+import static org.jlab.epics2web.epics.TestDbrs.doubleDbr;
+import static org.jlab.epics2web.epics.TestDbrs.floatDbr;
 import static org.junit.Assert.assertEquals;
 
 import gov.aps.jca.dbr.DBR;
-import gov.aps.jca.dbr.DBR_Double;
-import gov.aps.jca.dbr.DBR_Float;
 import jakarta.json.Json;
 import jakarta.json.JsonObjectBuilder;
 import org.junit.Test;
@@ -53,13 +53,5 @@ public class ChannelManagerValueTest {
     JsonObjectBuilder builder = Json.createObjectBuilder();
     manager.addValueToJSON(builder, dbr);
     return builder.build().toString();
-  }
-
-  private static DBR doubleDbr(double value) {
-    return new DBR_Double(new double[] {value});
-  }
-
-  private static DBR floatDbr(float value) {
-    return new DBR_Float(new float[] {value});
   }
 }

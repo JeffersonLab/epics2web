@@ -14,7 +14,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
@@ -65,7 +64,7 @@ public class WebSocketSessionManager {
     JsonObjectBuilder objBuilder = Json.createObjectBuilder().add("type", "pong");
     JsonObject obj = objBuilder.build();
     String msg = obj.toString();
-    this.send(session, "pong", msg);
+    send(session, MessageType.OTHER, "pong", msg);
   }
 
   /**
@@ -338,7 +337,7 @@ public class WebSocketSessionManager {
 
     JsonObject obj = builder.build();
     String msg = obj.toString();
-    send(session, pv, msg);
+    send(session, MessageType.INFO, pv, msg);
   }
 
   /**
@@ -355,60 +354,57 @@ public class WebSocketSessionManager {
     channelManager.addValueToJSON(builder, dbr);
     JsonObject obj = builder.build();
     String msg = obj.toString();
-    send(session, pv, msg);
+    send(session, MessageType.UPDATE, pv, msg);
   }
 
+  /** The kinds of message, which a full write queue treats differently. */
+  public enum MessageType {
+    /** PV metadata and connection state; never dropped. */
+    INFO,
+    /** A PV value; replaces a waiting update for the same PV. */
+    UPDATE,
+    /** Anything else, such as a pong. */
+    OTHER
+  }
+
+  /**
+   * Queue a message for the client.
+   *
+   * @param session The client
+   * @param type The kind of message
+   * @param pv The PV the message is about, or a description for other messages
+   * @param msg The message
+   */
   @SuppressWarnings("unchecked")
-  public void send(Session session, String pv, String msg) {
+  public void send(Session session, MessageType type, String pv, String msg) {
     if (session.isOpen()) {
-      String id = session.toString();
       if (Application.WRITE_STRATEGY == WriteStrategy.ASYNC_QUEUE) {
         ConcurrentLinkedQueue<String> writequeue =
             (ConcurrentLinkedQueue<String>) session.getUserProperties().get("writequeue");
 
         if (writequeue.size() > Application.WRITE_QUEUE_SIZE_LIMIT) {
-          AtomicLong dropCount =
-              (AtomicLong) session.getUserProperties().get("droppedMessageCount");
-          long count =
-              dropCount.getAndIncrement()
-                  + 1; // getAndIncrement is actually returning previous value, not newly updated,
-          // so we add 1.
-          // Limit log file output by only reporting when thresholds are reached
-          if (count == 1 || count == 1000 || count == 10000 || count == 100000) {
-            LOGGER.log(
-                Level.FINEST,
-                "Session {0} queue full (limit={1}); Dropping pv {2} message: {3}; total dropped: {4}",
-                new Object[] {id, Application.WRITE_QUEUE_SIZE_LIMIT, pv, msg, count});
-          }
+          countDroppedMessage(session, pv, msg);
         } else {
           writequeue.offer(msg);
         }
       } else if (Application.WRITE_STRATEGY == WriteStrategy.BLOCKING_QUEUE) {
-        ArrayBlockingQueue<String> writequeue =
-            (ArrayBlockingQueue<String>) session.getUserProperties().get("writequeue");
+        WriteQueue writequeue = (WriteQueue) session.getUserProperties().get("writequeue");
 
-        // TODO: should be using a fancy custom BlockingQueue that prioritizes info messages and
-        // also replaces queued update messages with most recent update (don't notify of stale
-        // updates - just move on to fresh updates)
         // TODO: it seems message queue filling up is likely a sign connection to client is bad and
         // maybe we should just close socket?
 
-        boolean success = writequeue.offer(msg);
+        boolean success =
+            switch (type) {
+              case INFO -> {
+                writequeue.offerInfo(pv, msg);
+                yield true;
+              }
+              case UPDATE -> writequeue.offerUpdate(pv, msg);
+              case OTHER -> writequeue.offer(msg);
+            };
 
         if (!success) {
-          AtomicLong dropCount =
-              (AtomicLong) session.getUserProperties().get("droppedMessageCount");
-          long count =
-              dropCount.getAndIncrement()
-                  + 1; // getAndIncrement is actually returning previous value, not newly updated,
-          // so we add 1.
-          // Limit log file output by only reporting when thresholds are reached
-          if (count == 1 || count == 1000 || count == 10000 || count == 100000) {
-            LOGGER.log(
-                Level.FINEST,
-                "Session {0} queue full (limit={1}); Dropping pv {2} message: {3}; total dropped: {4}",
-                new Object[] {id, Application.WRITE_QUEUE_SIZE_LIMIT, pv, msg, count});
-          }
+          countDroppedMessage(session, pv, msg);
         }
       } else {
         try {
@@ -424,6 +420,18 @@ public class WebSocketSessionManager {
           LOGGER.log(Level.WARNING, "Unable to send message", e);
         }
       }
+    }
+  }
+
+  private void countDroppedMessage(Session session, String pv, String msg) {
+    AtomicLong dropCount = (AtomicLong) session.getUserProperties().get("droppedMessageCount");
+    long count = dropCount.incrementAndGet();
+    // Limit log file output by only reporting when thresholds are reached
+    if (count == 1 || count == 1000 || count == 10000 || count == 100000) {
+      LOGGER.log(
+          Level.INFO,
+          "Session {0} queue full (limit={1}); Dropping pv {2} message: {3}; total dropped: {4}",
+          new Object[] {session, Application.WRITE_QUEUE_SIZE_LIMIT, pv, msg, count});
     }
   }
 }

@@ -1,5 +1,6 @@
 package org.jlab.epics2web.websocket;
 
+import static org.jlab.epics2web.epics.TestDbrs.doubleDbr;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -9,7 +10,6 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import gov.aps.jca.dbr.DBRType;
-import gov.aps.jca.dbr.DBR_Double;
 import jakarta.json.Json;
 import jakarta.json.JsonArray;
 import java.io.StringReader;
@@ -24,14 +24,14 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import org.jlab.epics2web.epics.ChannelManager;
 import org.jlab.epics2web.epics.PvListener;
+import org.jlab.epics2web.websocket.WebSocketSessionManager.MessageType;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.Timeout;
 
 /**
  * Tests WebSocketSessionManager with a fake session and a channel manager that records
- * subscriptions, so no IOC or server is needed. Which message a full queue drops (#26) is left to
- * the fix for that issue.
+ * subscriptions, so no IOC or server is needed.
  */
 public class WebSocketSessionManagerTest {
 
@@ -88,7 +88,7 @@ public class WebSocketSessionManagerTest {
   public void sendUpdate() {
     FakeSession client = connect("1");
 
-    manager.sendUpdate(client.session, "pv1", new DBR_Double(new double[] {1.5}));
+    manager.sendUpdate(client.session, "pv1", doubleDbr(1.5));
 
     assertEquals("{\"type\":\"update\",\"pv\":\"pv1\",\"value\":1.5}", client.writeQueue.poll());
   }
@@ -98,9 +98,9 @@ public class WebSocketSessionManagerTest {
     FakeSession client = connect("1");
     client.open = false;
 
-    manager.send(client.session, "pv1", "message");
+    manager.send(client.session, MessageType.UPDATE, "pv1", "message");
 
-    assertTrue(client.writeQueue.isEmpty());
+    assertNull(client.writeQueue.poll());
     assertEquals(0, client.droppedMessageCount());
   }
 
@@ -109,13 +109,32 @@ public class WebSocketSessionManagerTest {
   public void fullQueueCountsDroppedMessages() {
     FakeSession client = connect("1", 2);
 
-    manager.send(client.session, "pv1", "message1");
-    manager.send(client.session, "pv2", "message2");
-    manager.send(client.session, "pv3", "message3");
-    manager.send(client.session, "pv4", "message4");
+    manager.send(client.session, MessageType.UPDATE, "pv1", "message1");
+    manager.send(client.session, MessageType.UPDATE, "pv2", "message2");
+    manager.send(client.session, MessageType.UPDATE, "pv3", "message3");
+    manager.send(client.session, MessageType.UPDATE, "pv4", "message4");
 
     assertEquals(2, client.writeQueue.size());
     assertEquals(2, client.droppedMessageCount());
+  }
+
+  /** A client that falls behind gets each PV's latest value and every info message (#26). */
+  @Test
+  public void fullQueueKeepsLatestUpdatesAndInfo() throws Exception {
+    FakeSession client = connect("1", 2);
+
+    manager.sendUpdate(client.session, "pv1", doubleDbr(1.0));
+    manager.sendUpdate(client.session, "pv2", doubleDbr(1.0));
+    manager.sendUpdate(client.session, "pv1", doubleDbr(2.0));
+    manager.sendInfo(client.session, "pv3", false, null, null, null);
+    manager.sendPong(client.session);
+
+    assertEquals("{\"type\":\"update\",\"pv\":\"pv1\",\"value\":2.0}", client.writeQueue.poll());
+    assertEquals("{\"type\":\"update\",\"pv\":\"pv2\",\"value\":1.0}", client.writeQueue.poll());
+    assertEquals(
+        "{\"type\":\"info\",\"pv\":\"pv3\",\"connected\":false}", client.writeQueue.poll());
+    assertNull(client.writeQueue.poll());
+    assertEquals(1, client.droppedMessageCount()); // The pong
   }
 
   @Test
@@ -168,13 +187,13 @@ public class WebSocketSessionManagerTest {
     manager.addPvs(client2.session, new HashSet<>(Set.of("pv1")));
 
     listenerOf(client1).notifyPvInfo("pv1", true, DBRType.DOUBLE, 1, null);
-    listenerOf(client1).notifyPvUpdate("pv1", new DBR_Double(new double[] {2.0}));
+    listenerOf(client1).notifyPvUpdate("pv1", doubleDbr(2.0));
 
     assertEquals(
         "{\"type\":\"info\",\"pv\":\"pv1\",\"connected\":true,\"datatype\":\"DBR_DOUBLE\",\"count\":1}",
         client1.writeQueue.poll());
     assertEquals("{\"type\":\"update\",\"pv\":\"pv1\",\"value\":2.0}", client1.writeQueue.poll());
-    assertTrue(client2.writeQueue.isEmpty());
+    assertNull(client2.writeQueue.poll());
   }
 
   @Test
@@ -223,8 +242,8 @@ public class WebSocketSessionManagerTest {
     manager.addPvs(open.session, new HashSet<>(Set.of("pv1", "pv2")));
     manager.addPvs(closed.session, new HashSet<>(Set.of("pv3")));
     closed.open = false;
-    manager.send(open.session, "pv1", "queued");
-    manager.send(open.session, "pv2", "dropped");
+    manager.send(open.session, MessageType.UPDATE, "pv1", "queued");
+    manager.send(open.session, MessageType.UPDATE, "pv2", "dropped");
 
     Map<SessionInfo, Set<String>> clientMap = manager.getClientMap();
 
