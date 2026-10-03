@@ -7,7 +7,8 @@ import jakarta.json.*;
 import jakarta.websocket.Session;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Calendar;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -16,6 +17,7 @@ import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -31,6 +33,12 @@ import org.jlab.epics2web.epics.PvListener;
 public class WebSocketSessionManager {
 
   private static final Logger LOGGER = Logger.getLogger(WebSocketSessionManager.class.getName());
+
+  /** How often the server pings sessions and purges stale ones. */
+  public static final long PING_INTERVAL_SECONDS = 30;
+
+  /** A session with no message or pong for this long is closed. */
+  public static final Duration STALE_AFTER = Duration.ofSeconds(60);
 
   private final JsonBuilderFactory factory = Json.createBuilderFactory(null);
 
@@ -61,51 +69,66 @@ public class WebSocketSessionManager {
     this.send(session, "pong", msg);
   }
 
-  public void purgeStaleSessions() {
+  /**
+   * Close and remove sessions that are closed already, or that haven't sent a message or pong for
+   * STALE_AFTER. Run every PING_INTERVAL_SECONDS, together with pingAllSessions.
+   *
+   * @param executor Runs the closes, which can block on an unresponsive client
+   */
+  public void purgeStaleSessions(Executor executor) {
+    Instant cutoff = Instant.now().minus(STALE_AFTER);
+
     for (Session s : listenerMap.keySet()) {
-      purgeIfStale(s);
-    }
-  }
-
-  public void purgeIfStale(Session s) {
-    Date lastUpdated = (Date) s.getUserProperties().get("lastUpdated");
-    boolean expired = true;
-
-    Calendar cal = Calendar.getInstance();
-    cal.add(Calendar.MINUTE, -1); // Stale if no interaction for 1 minute
-
-    if (lastUpdated != null && lastUpdated.before(cal.getTime())) {
-      expired = true;
-    }
-
-    if (!s.isOpen() || expired) {
-      LOGGER.log(Level.INFO, "Expiring session: {0}", s.getId());
-      removeClient(s);
-      if (s.isOpen()) {
-        try {
-          s.close();
-        } catch (IOException e) {
-          LOGGER.log(Level.WARNING, "Unable to close expired session", e);
-        }
+      if (isStale(s, cutoff)) {
+        LOGGER.log(Level.INFO, "Expiring session: {0}", s.getId());
+        removeClient(s);
+        executor.execute(() -> close(s));
       }
     }
   }
 
-  public void pingAllSessions() {
-    for (Session s : listenerMap.keySet()) {
-      try {
-        sendWsPing(s);
-      } catch (IllegalArgumentException | IOException e) {
-        LOGGER.log(Level.WARNING, "Unable to send WS ping", e);
-        removeClient(s);
+  private boolean isStale(Session s, Instant cutoff) {
+    if (!s.isOpen()) {
+      return true;
+    }
 
-        if (s.isOpen()) {
-          try {
-            s.close();
-          } catch (IOException e2) {
-            LOGGER.log(Level.WARNING, "Unable to close bad session", e2);
-          }
-        }
+    Date lastUpdated = (Date) s.getUserProperties().get("lastUpdated");
+
+    return lastUpdated == null || lastUpdated.toInstant().isBefore(cutoff);
+  }
+
+  /**
+   * Send a WebSocket ping to every session. Clients answer with a pong, which records an
+   * interaction, so purgeStaleSessions can tell live clients from dead ones whether or not they
+   * send pings of their own. A session the ping can't be sent to is closed and removed.
+   *
+   * @param executor Runs the pings, one task per session, so an unresponsive client doesn't delay
+   *     the others
+   */
+  public void pingAllSessions(Executor executor) {
+    for (Session s : listenerMap.keySet()) {
+      executor.execute(
+          () -> {
+            try {
+              sendWsPing(s);
+            } catch (IllegalArgumentException | IllegalStateException | IOException e) {
+              LOGGER.log(
+                  Level.INFO,
+                  "Unable to send WS ping to session {0}: {1}",
+                  new Object[] {s.getId(), e});
+              removeClient(s);
+              close(s);
+            }
+          });
+    }
+  }
+
+  private void close(Session s) {
+    if (s.isOpen()) {
+      try {
+        s.close();
+      } catch (IOException e) {
+        LOGGER.log(Level.WARNING, "Unable to close session", e);
       }
     }
   }
@@ -116,7 +139,7 @@ public class WebSocketSessionManager {
         session.getBasicRemote().sendPing(ByteBuffer.allocate(0));
       }
     } else {
-      LOGGER.log(Level.WARNING, "session is closed: {0}", session);
+      LOGGER.log(Level.FINEST, "session is closed: {0}", session);
     }
   }
 
@@ -159,8 +182,7 @@ public class WebSocketSessionManager {
    * @param session The session (client) to manage
    */
   public void addClient(Session session) {
-    // Only a "real" client once actually monitoring something via addPvs()
-    // In other words, let's lazily create state only once needed
+    listenerMap.put(session, new WebSocketSessionMonitor(session, this));
   }
 
   /**
@@ -169,7 +191,11 @@ public class WebSocketSessionManager {
    * @param session The session (client) to remove
    */
   public void removeClient(Session session) {
-    removePvs(session, null);
+    WebSocketSessionMonitor listener = listenerMap.remove(session);
+
+    if (listener != null) {
+      channelManager.removeAll(listener);
+    }
   }
 
   /**
@@ -179,7 +205,12 @@ public class WebSocketSessionManager {
    * @param pvSet The set of PVs
    */
   public void addPvs(Session session, Set<String> pvSet) {
-    WebSocketSessionMonitor listener = getListener(session);
+    WebSocketSessionMonitor listener = listenerMap.get(session);
+
+    if (listener == null) {
+      LOGGER.log(Level.FINEST, "Ignoring add PV request from removed session");
+      return;
+    }
 
     if (pvSet != null) {
       // Make sure empty string isn't included as a PV as that is invalid and is ignored
@@ -197,32 +228,36 @@ public class WebSocketSessionManager {
           // TODO: Retry?
         }
       }
+
+      // If the session was removed meanwhile, its removeAll may have missed these PVs
+      if (listenerMap.get(session) != listener) {
+        channelManager.removeAll(listener);
+      }
     }
   }
 
   /**
-   * Stop monitoring the provided PVs for the specified client. Completely remove the session and
-   * all PVs by setting pvSet to null.
+   * Stop monitoring the provided PVs for the specified client.
    *
    * @param session The client session
-   * @param pvSet The set of PVs. Remove all if pvSet is null
+   * @param pvSet The set of PVs
    */
   public void removePvs(Session session, Set<String> pvSet) {
-    WebSocketSessionMonitor listener = getListener(session);
+    WebSocketSessionMonitor listener = listenerMap.get(session);
 
-    if (pvSet != null) {
-      // Make sure empty string isn't included as a PV as that is invalid and is ignored
-      boolean emptyIncluded = pvSet.remove("");
+    if (listener == null) {
+      return;
+    }
 
-      if (emptyIncluded) {
-        LOGGER.log(Level.FINEST, "Empty string ignored in remove PV request");
-      }
+    // Make sure empty string isn't included as a PV as that is invalid and is ignored
+    boolean emptyIncluded = pvSet.remove("");
 
-      for (String pv : pvSet) {
-        channelManager.removePv(listener, pv);
-      }
-    } else { // pvSet == null (removeAll)
-      channelManager.removeAll(listener);
+    if (emptyIncluded) {
+      LOGGER.log(Level.FINEST, "Empty string ignored in remove PV request");
+    }
+
+    for (String pv : pvSet) {
+      channelManager.removePv(listener, pv);
     }
   }
 
@@ -235,9 +270,9 @@ public class WebSocketSessionManager {
     Map<PvListener, Set<String>> pvMap = channelManager.getListenerMap();
     Map<SessionInfo, Set<String>> clientMap = new HashMap<>();
 
-    for (Session session : listenerMap.keySet()) {
-      WebSocketSessionMonitor listener = listenerMap.get(session);
-      Set<String> pvSet = pvMap.get(listener);
+    for (Map.Entry<Session, WebSocketSessionMonitor> entry : listenerMap.entrySet()) {
+      Session session = entry.getKey();
+      Set<String> pvSet = pvMap.getOrDefault(entry.getValue(), Set.of());
 
       if (session.isOpen()) {
         String id = null;
@@ -266,17 +301,6 @@ public class WebSocketSessionManager {
 
   public Set<Session> toSet() {
     return new HashSet<>(listenerMap.keySet());
-  }
-
-  private WebSocketSessionMonitor getListener(Session session) {
-    WebSocketSessionMonitor listener = listenerMap.get(session);
-
-    if (listener == null) {
-      listener = new WebSocketSessionMonitor(session, this);
-      listenerMap.put(session, listener);
-    }
-
-    return listener;
   }
 
   /**
