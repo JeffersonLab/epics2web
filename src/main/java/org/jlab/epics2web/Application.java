@@ -15,6 +15,7 @@ import jakarta.websocket.SendHandler;
 import jakarta.websocket.SendResult;
 import jakarta.websocket.Session;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
@@ -47,6 +48,14 @@ public class Application implements ServletContextListener {
 
   private static final int TIMEOUT_EXECUTOR_POOL_SIZE = 1;
   private static final Logger LOGGER = Logger.getLogger(Application.class.getName());
+
+  /** How often the server pings WebSocket sessions and closes stale ones. */
+  static final long PING_INTERVAL_SECONDS =
+      getSecondsFromEnv("WEBSOCKET_PING_INTERVAL_SECONDS", 30);
+
+  /** A WebSocket session with no message or pong for this long is closed. */
+  static final long TIMEOUT_SECONDS = getSecondsFromEnv("WEBSOCKET_TIMEOUT_SECONDS", 60);
+
   private static ScheduledExecutorService timeoutExecutor = null;
   private static ExecutorService callbackExecutor = null;
   private static ExecutorService writerExecutor = null;
@@ -54,6 +63,32 @@ public class Application implements ServletContextListener {
   private static ExecutorService pingExecutor = null;
   private static ContextFactory factory = null;
   private static volatile CAJContext context = null;
+
+  /** Read a positive whole number of seconds from an environment variable. */
+  static long getSecondsFromEnv(String name, long defaultValue) {
+    return parseSeconds(name, System.getenv(name), defaultValue);
+  }
+
+  static long parseSeconds(String name, String value, long defaultValue) {
+    if (value == null || value.isBlank()) {
+      return defaultValue;
+    }
+
+    try {
+      long seconds = Long.parseLong(value.trim());
+      if (seconds > 0) {
+        return seconds;
+      }
+    } catch (NumberFormatException e) {
+      // Fall through to the warning
+    }
+
+    LOGGER.log(
+        Level.WARNING,
+        "{0} must be a positive whole number of seconds, not \"{1}\"; using {2}",
+        new Object[] {name, value, defaultValue});
+    return defaultValue;
+  }
 
   @SuppressWarnings("unchecked")
   public static Future<?> writeFromBlockingQueue(Session session) {
@@ -123,7 +158,19 @@ public class Application implements ServletContextListener {
             new CustomPrefixThreadFactory("Web-Socket-Session-Check-"));
     pingExecutor = Executors.newCachedThreadPool(new CustomPrefixThreadFactory("Web-Socket-Ping-"));
     channelManager = new ChannelManager(context, timeoutExecutor, callbackExecutor);
-    sessionManager = new WebSocketSessionManager(channelManager);
+    sessionManager =
+        new WebSocketSessionManager(channelManager, Duration.ofSeconds(TIMEOUT_SECONDS));
+
+    LOGGER.log(
+        Level.INFO,
+        "Pinging WebSocket sessions every {0} s; closing those with no message or pong for {1} s",
+        new Object[] {PING_INTERVAL_SECONDS, TIMEOUT_SECONDS});
+    if (TIMEOUT_SECONDS <= PING_INTERVAL_SECONDS) {
+      LOGGER.log(
+          Level.WARNING,
+          "WEBSOCKET_TIMEOUT_SECONDS should be longer than WEBSOCKET_PING_INTERVAL_SECONDS, or "
+              + "clients that only answer pings will be closed");
+    }
 
     sessionCheckExecutor.scheduleWithFixedDelay(
         () -> {
@@ -134,8 +181,8 @@ public class Application implements ServletContextListener {
             LOGGER.log(Level.WARNING, "Unable to check sessions", e);
           }
         },
-        WebSocketSessionManager.PING_INTERVAL_SECONDS,
-        WebSocketSessionManager.PING_INTERVAL_SECONDS,
+        PING_INTERVAL_SECONDS,
+        PING_INTERVAL_SECONDS,
         TimeUnit.SECONDS);
 
     try {

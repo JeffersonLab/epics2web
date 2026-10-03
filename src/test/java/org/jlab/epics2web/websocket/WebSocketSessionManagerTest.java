@@ -13,6 +13,7 @@ import gov.aps.jca.dbr.DBR_Double;
 import jakarta.json.Json;
 import jakarta.json.JsonArray;
 import java.io.StringReader;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
@@ -35,7 +36,8 @@ import org.junit.rules.Timeout;
 public class WebSocketSessionManagerTest {
 
   private final RecordingChannelManager channelManager = new RecordingChannelManager();
-  private final WebSocketSessionManager manager = new WebSocketSessionManager(channelManager);
+  private final WebSocketSessionManager manager =
+      new WebSocketSessionManager(channelManager, Duration.ofSeconds(60));
 
   /** A send that blocks on a full queue fails the test instead of hanging it. */
   @Rule public Timeout timeout = Timeout.seconds(5);

@@ -8,6 +8,10 @@ services:
     extends:
       file: compose.yaml
       service: epics2web
+    environment:
+      # Short, so PingTest runs in seconds
+      WEBSOCKET_PING_INTERVAL_SECONDS: 2
+      WEBSOCKET_TIMEOUT_SECONDS: 5
     build:
       context: .
       dockerfile: Dockerfile
