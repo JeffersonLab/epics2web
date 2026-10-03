@@ -13,3 +13,8 @@ services:
       - softioc
     ports:
       - 8080:8080
+    healthcheck:
+      test: curl -sf http://localhost:8080/epics2web/healthcheck
+      interval: 30s
+      start_period: 60s
+      start_interval: 1s

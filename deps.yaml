@@ -13,3 +13,8 @@ services:
     volumes:
       - ./examples/softioc-db:/db
       - ./examples/softioc-scripts:/scripts
+    healthcheck:
+      test: caget -w 1 HELLO
+      interval: 30s
+      start_period: 60s
+      start_interval: 1s

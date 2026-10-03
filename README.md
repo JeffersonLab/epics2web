@@ -93,13 +93,15 @@ gradlew build
 **See**: [Docker Development Quick Reference](https://gist.github.com/slominskir/a7da801e8259f5974c978f9c3091d52c#development-quick-reference)
 
 ## Test
+Unit tests run with `gradlew build`.  Integration tests need the test IOC and epics2web containers:
 ```
-docker compose -f build.yaml up
+docker compose -f build.yaml up --wait
 ```
-Wait for containers to start then:
+Then:
 ```
 gradlew integrationTest
 ```
+**Note**: Outside JLab, build the image without the JLab CA certificate first: `docker compose -f build.yaml build --build-arg CUSTOM_CRT_URL=`
 ## Release
 1. Bump the version number in the VERSION file and commit and push to GitHub (using [Semantic Versioning](https://semver.org/)).
 2. The [CD](https://github.com/JeffersonLab/epics2web/blob/main/.github/workflows/cd.yaml) GitHub Action should run automatically invoking:
