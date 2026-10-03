@@ -21,7 +21,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.jlab.epics2web.Application;
 import org.jlab.epics2web.epics.PvListener;
-import org.jlab.util.LockAcquisitionTimeoutException;
 
 /**
  * Manages web socket sessions and ties them to channel access monitors.
@@ -181,7 +180,7 @@ public class WebSocketSessionManager {
       for (String pv : pvSet) {
         try {
           Application.channelManager.addPv(listener, pv);
-        } catch (InterruptedException | CAException | LockAcquisitionTimeoutException e) {
+        } catch (CAException e) {
           LOGGER.log(Level.WARNING, "Unable to addPv: " + pv, e);
           // TODO: Retry?
         }
@@ -208,19 +207,10 @@ public class WebSocketSessionManager {
       }
 
       for (String pv : pvSet) {
-        try {
-          Application.channelManager.removePv(listener, pv);
-        } catch (InterruptedException | LockAcquisitionTimeoutException e) {
-          LOGGER.log(Level.WARNING, "Unable to removePv: " + pv, e);
-          // TODO: Retry?
-        }
+        Application.channelManager.removePv(listener, pv);
       }
     } else { // pvSet == null (removeAll)
-      Map<String, Exception> failed = Application.channelManager.removeAll(listener);
-      for (String pv : failed.keySet()) {
-        LOGGER.log(Level.WARNING, "Unable to (bulk) removePv: " + pv, failed.get(pv));
-        // TODO: Retry?
-      }
+      Application.channelManager.removeAll(listener);
     }
   }
 

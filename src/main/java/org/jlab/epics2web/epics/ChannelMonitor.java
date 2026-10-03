@@ -104,13 +104,22 @@ public class ChannelMonitor implements Closeable {
   }
 
   /**
-   * Add a new PvListener.
+   * Add a new PvListener. The listener is not notified of the current state; call
+   * notifyCurrentState afterward (outside any lock).
    *
    * @param listener The PvListener
    */
   public void addListener(PvListener listener) {
     listeners.add(listener);
+  }
 
+  /**
+   * Notify a listener of the current connection state and most recent value, if known. Listeners
+   * still connecting are notified later by the connection or timeout callback.
+   *
+   * @param listener The PvListener
+   */
+  public void notifyCurrentState(PvListener listener) {
     switch (state.get()) {
       case CONNECTED:
         notifyPvInfo(listener, true);

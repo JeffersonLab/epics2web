@@ -12,18 +12,14 @@ import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.jlab.util.LockAcquisitionTimeoutException;
 
 public class ChannelManager {
 
@@ -32,23 +28,14 @@ public class ChannelManager {
 
   private static final Logger LOGGER = Logger.getLogger(ChannelManager.class.getName());
 
-  private final Map<String, ChannelMonitor> monitorMap = new ConcurrentHashMap<>();
+  /** Must be a ConcurrentHashMap: addPv and removePv rely on its atomic per-key compute. */
+  private final ConcurrentHashMap<String, ChannelMonitor> monitorMap = new ConcurrentHashMap<>();
+
   private final Map<PvListener, Set<String>> clientMap = new ConcurrentHashMap<>();
 
   private volatile CAJContext context;
   private final ScheduledExecutorService timeoutExecutor;
   private final ExecutorService callbackExecutor;
-
-  private final ReentrantLock managerLock = new ReentrantLock();
-
-  /**
-   * Overloaded server will reject create channel requests after 30 seconds; may also shake deadlock
-   * bug in CAJ createChannel.
-   */
-  private final long ACQUIRE_RESOURCE_TIMEOUT_SECONDS = 30;
-
-  /** After 15 minutes we assume better to leak resource than stay stuck */
-  private final long CLEANUP_RESOURCE_TIMEOUT_SECONDS = 900;
 
   /**
    * Create a new ChannelMonitorManager.
@@ -247,46 +234,44 @@ public class ChannelManager {
    * to are skipped (duplicate PVs are ignored). There is no need to call addListener before calling
    * this method.
    *
+   * <p>Creating a monitor, joining it, leaving it, and closing it are all done atomically per PV
+   * inside monitorMap.compute so that concurrent add and remove of the same PV can't create
+   * duplicate monitors or attach a listener to a monitor being closed. Channel create and destroy
+   * must also be serialized per PV because CAJ shares channels by name: creating a channel while
+   * the same-named channel is being destroyed hands back the closed channel.
+   *
    * @param listener The PvListener to receive notifications
    * @param pv The PV to monitor
+   * @throws CAException If unable to create the channel
    */
-  public void addPv(PvListener listener, String pv)
-      throws InterruptedException, CAException, LockAcquisitionTimeoutException {
+  public void addPv(PvListener listener, String pv) throws CAException {
     LOGGER.log(Level.FINEST, "addPv: {0} {1}", new Object[] {listener, pv});
-    ChannelMonitor monitor = null;
-    monitor = monitorMap.get(pv);
 
-    // INTERNAL HOLDING LOCK
-    if (managerLock.tryLock(ACQUIRE_RESOURCE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
-      try {
-        if (monitor == null) {
-          // LOGGER.log(Level.FINEST, "Opening ChannelMonitor: {0}", pv);
-          // HERE IS THE HEAVYWEIGHT ACTION: It's an async create channel request, but is still
-          // bottleneck; We're holding a lock while we wait...
-          monitor = new ChannelMonitor(pv, context, timeoutExecutor, callbackExecutor);
-          monitorMap.put(pv, monitor);
-        } else {
-          // LOGGER.log(Level.FINEST, "Joining ChannelMonitor: {0}", pv);
-        }
-
-        Set<String> clientPvSet = clientMap.get(listener);
-
-        if (clientPvSet == null) {
-          clientPvSet = new HashSet<>();
-        }
-
-        clientPvSet.add(pv);
-
-        clientMap.put(listener, clientPvSet);
-      } finally {
-        managerLock.unlock();
-      }
-    } else {
-      throw new LockAcquisitionTimeoutException("Timeout while acquiring managerLock in addPv");
+    ChannelMonitor monitor;
+    try {
+      monitor =
+          monitorMap.compute(
+              pv,
+              (k, existing) -> {
+                ChannelMonitor m = existing;
+                if (m == null) {
+                  try {
+                    m = new ChannelMonitor(pv, context, timeoutExecutor, callbackExecutor);
+                  } catch (CAException e) {
+                    throw new MonitorCreationException(e);
+                  }
+                }
+                m.addListener(listener);
+                return m;
+              });
+    } catch (MonitorCreationException e) {
+      throw e.getCause();
     }
 
-    // EXTERNAL NO LOCK
-    monitor.addListener(listener);
+    clientMap.computeIfAbsent(listener, k -> ConcurrentHashMap.newKeySet()).add(pv);
+
+    // ABSOLUTELY DO NOT CALL NOTIFY WHILE HOLDING A LOCK
+    monitor.notifyCurrentState(listener);
   }
 
   /**
@@ -296,70 +281,44 @@ public class ChannelManager {
    * @param listener The PvListener
    * @param pv The PV to remove
    */
-  public void removePv(PvListener listener, String pv)
-      throws InterruptedException, LockAcquisitionTimeoutException {
+  public void removePv(PvListener listener, String pv) {
     LOGGER.log(Level.FINEST, "removePv: {0} {1}", new Object[] {listener, pv});
-    int listenerCount = 0;
-    ChannelMonitor monitor = monitorMap.get(pv);
 
-    if (monitor != null) {
-      monitor.removeListener(listener);
+    Set<String> clientPvSet = clientMap.get(listener);
+    if (clientPvSet != null) {
+      clientPvSet.remove(pv);
     }
 
-    // INTERNAL HOLDING LOCK
-    if (managerLock.tryLock(CLEANUP_RESOURCE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
-      if (monitor != null) {
-        listenerCount = monitor.getListenerCount();
-        if (listenerCount == 0) {
-          monitorMap.remove(pv);
-        }
-      }
-
-      try {
-        Set<String> clientPvSet = clientMap.get(listener);
-
-        if (clientPvSet != null) {
-          clientPvSet.remove(pv);
-        }
-      } finally {
-        managerLock.unlock();
-      }
-    } else {
-      throw new LockAcquisitionTimeoutException("Timeout while acquiring managerLock in removePv");
-    }
-
-    // EXTERNAL NO LOCK
-    if (monitor != null && listenerCount == 0) {
-      try {
-        monitor.close();
-      } catch (IOException e) {
-        LOGGER.log(Level.WARNING, "Unable to close monitor", e);
-      }
-    }
+    monitorMap.computeIfPresent(
+        pv,
+        (k, monitor) -> {
+          monitor.removeListener(listener);
+          if (monitor.getListenerCount() > 0) {
+            return monitor;
+          }
+          try {
+            monitor.close();
+          } catch (IOException e) {
+            LOGGER.log(Level.WARNING, "Unable to close monitor", e);
+          }
+          return null; // Last listener left; remove mapping
+        });
   }
 
   /**
    * Removes the specified listener and unregisters any PVs the listener was interested in.
    *
    * @param listener The PvListener
-   * @return a map of PV names to Exceptions for any PVs that were unable to be removed
    */
-  public Map<String, Exception> removeAll(PvListener listener) {
+  public void removeAll(PvListener listener) {
     LOGGER.log(Level.FINEST, "removeAll: {0}", listener);
     Set<String> pvSet = clientMap.remove(listener);
 
-    Map<String, Exception> failed = new HashMap<>();
     if (pvSet != null) {
       for (String pv : pvSet) {
-        try {
-          removePv(listener, pv);
-        } catch (InterruptedException | LockAcquisitionTimeoutException e) {
-          failed.put(pv, e);
-        }
+        removePv(listener, pv);
       }
     }
-
-    return failed;
   }
 
   /**
@@ -379,5 +338,17 @@ public class ChannelManager {
    */
   public Map<PvListener, Set<String>> getListenerMap() {
     return Collections.unmodifiableMap(clientMap);
+  }
+
+  /** Carries a checked CAException out of a ConcurrentHashMap remapping function. */
+  private static class MonitorCreationException extends RuntimeException {
+    MonitorCreationException(CAException cause) {
+      super(cause);
+    }
+
+    @Override
+    public synchronized CAException getCause() {
+      return (CAException) super.getCause();
+    }
   }
 }
