@@ -50,11 +50,10 @@ public class Application implements ServletContextListener {
   private static ScheduledExecutorService timeoutExecutor = null;
   private static ExecutorService callbackExecutor = null;
   private static ExecutorService writerExecutor = null;
-  private static ExecutorService resetExecutor = null;
+  private static ScheduledExecutorService sessionCheckExecutor = null;
+  private static ExecutorService pingExecutor = null;
   private static ContextFactory factory = null;
   private static volatile CAJContext context = null;
-
-  public static volatile boolean RESTARTING = false;
 
   @SuppressWarnings("unchecked")
   public static Future<?> writeFromBlockingQueue(Session session) {
@@ -119,9 +118,25 @@ public class Application implements ServletContextListener {
     callbackExecutor = Executors.newCachedThreadPool(new CustomPrefixThreadFactory("Callback-"));
     writerExecutor =
         Executors.newCachedThreadPool(new CustomPrefixThreadFactory("Web-Socket-Writer-"));
-    resetExecutor = Executors.newSingleThreadExecutor(new CustomPrefixThreadFactory("Resetter-"));
+    sessionCheckExecutor =
+        Executors.newSingleThreadScheduledExecutor(
+            new CustomPrefixThreadFactory("Web-Socket-Session-Check-"));
+    pingExecutor = Executors.newCachedThreadPool(new CustomPrefixThreadFactory("Web-Socket-Ping-"));
     channelManager = new ChannelManager(context, timeoutExecutor, callbackExecutor);
     sessionManager = new WebSocketSessionManager(channelManager);
+
+    sessionCheckExecutor.scheduleWithFixedDelay(
+        () -> {
+          try {
+            sessionManager.purgeStaleSessions(pingExecutor);
+            sessionManager.pingAllSessions(pingExecutor);
+          } catch (RuntimeException e) { // An exception would cancel the schedule
+            LOGGER.log(Level.WARNING, "Unable to check sessions", e);
+          }
+        },
+        WebSocketSessionManager.PING_INTERVAL_SECONDS,
+        WebSocketSessionManager.PING_INTERVAL_SECONDS,
+        TimeUnit.SECONDS);
 
     try {
       registerContextListeners(context);
@@ -212,8 +227,12 @@ public class Application implements ServletContextListener {
       writerExecutor.shutdownNow();
     }
 
-    if (resetExecutor != null) {
-      resetExecutor.shutdown();
+    if (sessionCheckExecutor != null) {
+      sessionCheckExecutor.shutdownNow();
+    }
+
+    if (pingExecutor != null) {
+      pingExecutor.shutdownNow();
     }
 
     if (timeoutExecutor != null) {

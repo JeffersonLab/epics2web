@@ -1,10 +1,13 @@
 package org.jlab.epics2web.websocket;
 
+import jakarta.websocket.RemoteEndpoint;
 import jakarta.websocket.Session;
+import java.io.IOException;
 import java.lang.reflect.Proxy;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -18,6 +21,9 @@ class FakeSession {
   final Map<String, Object> userProperties = new ConcurrentHashMap<>();
   final Session session;
   volatile boolean open = true;
+  volatile boolean closed;
+  volatile boolean failPings;
+  final AtomicInteger pings = new AtomicInteger();
 
   FakeSession(String id, int queueSize) {
     writeQueue = new ArrayBlockingQueue<>(queueSize);
@@ -34,11 +40,35 @@ class FakeSession {
                       case "getId" -> id;
                       case "isOpen" -> open;
                       case "getUserProperties" -> userProperties;
+                      case "getBasicRemote" -> basicRemote();
+                      case "close" -> {
+                        open = false;
+                        closed = true;
+                        yield null;
+                      }
                       case "hashCode" -> System.identityHashCode(proxy);
                       case "equals" -> proxy == args[0];
                       case "toString" -> "FakeSession " + id;
                       default -> throw new UnsupportedOperationException(method.getName());
                     });
+  }
+
+  /** Only sendPing is supported. */
+  private RemoteEndpoint.Basic basicRemote() {
+    return (RemoteEndpoint.Basic)
+        Proxy.newProxyInstance(
+            RemoteEndpoint.Basic.class.getClassLoader(),
+            new Class<?>[] {RemoteEndpoint.Basic.class},
+            (proxy, method, args) -> {
+              if (!method.getName().equals("sendPing")) {
+                throw new UnsupportedOperationException(method.getName());
+              }
+              if (failPings) {
+                throw new IOException("Ping failed");
+              }
+              pings.incrementAndGet();
+              return null;
+            });
   }
 
   FakeSession(String id) {

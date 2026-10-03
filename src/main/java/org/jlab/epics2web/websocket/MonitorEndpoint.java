@@ -171,10 +171,6 @@ public class MonitorEndpoint {
   public String onMessage(String message, Session session) {
     // LOGGER.log(Level.FINEST, "Client message: {0}", message);
 
-    if (Application.RESTARTING) {
-      return null;
-    }
-
     Application.sessionManager.recordInteractionDate(session);
 
     try (JsonReader reader = Json.createReader(new StringReader(message))) {
