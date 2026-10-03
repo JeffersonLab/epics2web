@@ -19,6 +19,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 /**
@@ -35,6 +36,15 @@ public class ChannelManagerConcurrencyTest {
   private ExecutorService callbackExecutor;
   private ExecutorService workers;
   private ChannelManager manager;
+
+  /**
+   * CAJ otherwise starts a CA repeater in a separate JVM that outlives the tests and holds UDP
+   * 5065, which the test IOC needs. CAJ checks only that the property exists, not its value.
+   */
+  @BeforeClass
+  public static void disableRepeater() {
+    System.setProperty("CA_DISABLE_REPEATER", "true");
+  }
 
   @Before
   public void setUp() throws Exception {
