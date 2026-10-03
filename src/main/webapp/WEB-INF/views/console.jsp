@@ -19,6 +19,7 @@
                     <th>Total Clients (Sessions)</th>
                     <th>Total PVs (Duplicates Allowed)</th>
                     <th>Unique PVs (Monitors)</th>
+                    <th>Channel Access Channels</th>
                 </tr>
             </thead>
             <tbody>
@@ -30,6 +31,7 @@
                     <td><fmt:formatNumber value="${clientMap.size()}"/></td>
                     <td><fmt:formatNumber value="${totalPvs}"/></td>
                     <td><fmt:formatNumber value="${monitorMap.size()}"/></td>
+                    <td id="channel-count"><fmt:formatNumber value="${channelCount}"/></td>
                 </tr>                    
             </tbody>
         </table>        
