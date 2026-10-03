@@ -59,22 +59,10 @@ public class ChannelManager {
       strValue = "";
     } else if (dbr.isDOUBLE()) {
       double value = ((gov.aps.jca.dbr.DOUBLE) dbr).getDoubleValue()[0];
-      if (Double.isFinite(value)) {
-        strValue = String.valueOf(value);
-      } else if (Double.isNaN(value)) {
-        strValue = "NaN";
-      } else {
-        strValue = "Infinity";
-      }
+      strValue = String.valueOf(value); // NaN, Infinity or -Infinity if not finite
     } else if (dbr.isFLOAT()) {
       float value = ((gov.aps.jca.dbr.FLOAT) dbr).getFloatValue()[0];
-      if (Float.isFinite(value)) {
-        strValue = String.valueOf(value);
-      } else if (Float.isNaN(value)) {
-        strValue = "NaN";
-      } else {
-        strValue = "Infinity";
-      }
+      strValue = String.valueOf(value); // NaN, Infinity or -Infinity if not finite
     } else if (dbr.isINT()) {
       int value = ((gov.aps.jca.dbr.INT) dbr).getIntValue()[0];
       strValue = String.valueOf(value);
@@ -118,19 +106,15 @@ public class ChannelManager {
         double value = ((gov.aps.jca.dbr.DOUBLE) dbr).getDoubleValue()[0];
         if (Double.isFinite(value)) {
           builder.add("value", value);
-        } else if (Double.isNaN(value)) {
-          builder.add("value", "NaN");
         } else {
-          builder.add("value", "Infinity");
+          builder.add("value", String.valueOf(value)); // NaN, Infinity or -Infinity
         }
       } else if (dbr.isFLOAT()) {
         float value = ((gov.aps.jca.dbr.FLOAT) dbr).getFloatValue()[0];
         if (Float.isFinite(value)) {
           builder.add("value", value);
-        } else if (Float.isNaN(value)) {
-          builder.add("value", "NaN");
         } else {
-          builder.add("value", "Infinity");
+          builder.add("value", String.valueOf(value)); // NaN, Infinity or -Infinity
         }
       } else if (dbr.isINT()) {
         int value = ((gov.aps.jca.dbr.INT) dbr).getIntValue()[0];
