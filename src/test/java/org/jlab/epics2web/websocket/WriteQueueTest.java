@@ -140,6 +140,40 @@ public class WriteQueueTest {
     queue.take();
   }
 
+  /** Closing the queue stops a writer thread waiting in take, without interrupting it. */
+  @Test
+  public void closeWakesWaitingTake() throws Exception {
+    WriteQueue queue = new WriteQueue(10);
+    CompletableFuture<String> taken =
+        CompletableFuture.supplyAsync(
+            () -> {
+              try {
+                return queue.take();
+              } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+              }
+            });
+    Thread.sleep(100);
+
+    queue.close();
+
+    assertNull(taken.get(1, TimeUnit.SECONDS));
+  }
+
+  @Test
+  public void closeDiscardsWaitingAndLaterMessages() throws Exception {
+    WriteQueue queue = new WriteQueue(10);
+    queue.offerUpdate("pv1", "pv1 a");
+
+    queue.close();
+    assertTrue(queue.offerUpdate("pv1", "pv1 b")); // Ignored, not counted as dropped
+    queue.offerInfo("pv1", "pv1 connected");
+    assertTrue(queue.offer("pong"));
+
+    assertNull(queue.take());
+    assertEquals(0, queue.size());
+  }
+
   private static List<String> drain(WriteQueue queue) {
     List<String> messages = new ArrayList<>();
     for (String msg = queue.poll(); msg != null; msg = queue.poll()) {

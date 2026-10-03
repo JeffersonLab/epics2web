@@ -40,6 +40,8 @@ public class WriteQueue {
   private final ReentrantLock lock = new ReentrantLock();
   private final Condition notEmpty = lock.newCondition();
 
+  private boolean closed;
+
   /**
    * Create a new WriteQueue.
    *
@@ -59,6 +61,10 @@ public class WriteQueue {
   public boolean offerUpdate(String pv, String msg) {
     lock.lock();
     try {
+      if (closed) {
+        return true;
+      }
+
       Entry waiting = mergeableUpdates.get(pv);
       if (waiting != null) {
         waiting.msg = msg;
@@ -87,6 +93,10 @@ public class WriteQueue {
   public void offerInfo(String pv, String msg) {
     lock.lock();
     try {
+      if (closed) {
+        return;
+      }
+
       mergeableUpdates.remove(pv);
       append(new Entry(null, msg));
     } finally {
@@ -103,6 +113,10 @@ public class WriteQueue {
   public boolean offer(String msg) {
     lock.lock();
     try {
+      if (closed) {
+        return true;
+      }
+
       if (entries.size() >= sizeLimit) {
         return false;
       }
@@ -115,18 +129,18 @@ public class WriteQueue {
   }
 
   /**
-   * Remove the next message, waiting until there is one.
+   * Remove the next message, waiting until there is one or the queue is closed.
    *
-   * @return The message
+   * @return The message, or null once the queue is closed
    * @throws InterruptedException If interrupted while waiting
    */
   public String take() throws InterruptedException {
     lock.lockInterruptibly();
     try {
-      while (entries.isEmpty()) {
+      while (entries.isEmpty() && !closed) {
         notEmpty.await();
       }
-      return remove();
+      return closed ? null : remove();
     } finally {
       lock.unlock();
     }
@@ -141,6 +155,23 @@ public class WriteQueue {
     lock.lock();
     try {
       return entries.isEmpty() ? null : remove();
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  /**
+   * Discard waiting messages and ignore later ones, and make a waiting take return null. This stops
+   * a session's writer thread without interrupting it: an interrupted thread can't destroy Channel
+   * Access channels, and the writer thread may be the one closing the session.
+   */
+  public void close() {
+    lock.lock();
+    try {
+      closed = true;
+      entries.clear();
+      mergeableUpdates.clear();
+      notEmpty.signalAll();
     } finally {
       lock.unlock();
     }

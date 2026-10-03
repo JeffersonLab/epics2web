@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
@@ -107,14 +106,20 @@ public class MonitorEndpoint {
 
       session.getUserProperties().put("droppedMessageCount", new AtomicLong());
 
+      // Tomcat closes the session when a blocking write takes longer than this
+      session
+          .getUserProperties()
+          .put(
+              "org.apache.tomcat.websocket.BLOCKING_SEND_TIMEOUT",
+              Application.SEND_TIMEOUT_SECONDS * 1000);
+
       if (Application.WRITE_STRATEGY == WriteStrategy.ASYNC_QUEUE) {
         session.getUserProperties().put("isWriting", new AtomicBoolean(false));
         session.getUserProperties().put("writequeue", new ConcurrentLinkedQueue());
       } else if (Application.WRITE_STRATEGY == WriteStrategy.BLOCKING_QUEUE) {
         WriteQueue writequeue = new WriteQueue(Application.WRITE_QUEUE_SIZE_LIMIT);
         session.getUserProperties().put("writequeue", writequeue);
-        Future<?> writeThreadFuture = Application.writeFromBlockingQueue(session);
-        session.getUserProperties().put("writeThreadFuture", writeThreadFuture);
+        Application.writeFromBlockingQueue(session);
       }
 
       Application.sessionManager.addClient(session);
@@ -127,9 +132,9 @@ public class MonitorEndpoint {
     if (session != null) {
 
       if (Application.WRITE_STRATEGY == WriteStrategy.BLOCKING_QUEUE) {
-        Future<?> writeThreadFuture =
-            (Future<?>) session.getUserProperties().get("writeThreadFuture");
-        writeThreadFuture.cancel(true);
+        // Not an interrupt: onClose may run on the writer thread itself, when Tomcat closes the
+        // session after a failed write, and an interrupted thread can't destroy CA channels
+        ((WriteQueue) session.getUserProperties().get("writequeue")).close();
       }
 
       Application.sessionManager.removeClient(session);

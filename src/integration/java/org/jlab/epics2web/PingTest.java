@@ -1,23 +1,14 @@
 package org.jlab.epics2web;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.WebSocket;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.security.SecureRandom;
-import java.util.Base64;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -82,14 +73,12 @@ public class PingTest {
    */
   @Test
   public void clientThatDoesNotAnswerPingsIsClosed() throws Exception {
-    try (Socket socket = new Socket("localhost", 8080)) {
-      handshake(socket);
-      sendText(socket.getOutputStream(), "{\"type\": \"monitor\",\"pvs\": [\"channel1\"]}");
+    try (RawWebSocket client = new RawWebSocket()) {
+      client.sendText("{\"type\": \"monitor\",\"pvs\": [\"channel1\"]}");
       long start = System.currentTimeMillis();
       long deadline = start + TIMEOUT_MILLIS + PING_INTERVAL_MILLIS * 3;
 
       // Reading lets the test see the close; the server can't tell, since no pong is sent.
-      InputStream in = socket.getInputStream();
       int opcode;
       int pings = 0;
       do {
@@ -97,92 +86,21 @@ public class PingTest {
         if (timeout <= 0) {
           fail("Server didn't close a client that doesn't answer pings");
         }
-        socket.setSoTimeout(timeout);
+        client.socket.setSoTimeout(timeout);
         try {
-          opcode = readFrame(in);
+          opcode = client.readFrame();
         } catch (SocketTimeoutException e) {
           fail("Server didn't close a client that doesn't answer pings");
           return;
         }
-        if (opcode == 0x9) {
+        if (opcode == RawWebSocket.OPCODE_PING) {
           pings++;
         }
-      } while (opcode != 0x8);
+      } while (opcode != RawWebSocket.OPCODE_CLOSE);
 
       long elapsed = System.currentTimeMillis() - start;
       assertTrue("Closed after only " + elapsed + " ms", elapsed >= TIMEOUT_MILLIS - 1_000);
       assertTrue("Closed without being pinged", pings > 0);
     }
-  }
-
-  /** Reads one unmasked frame from the server, discarding its payload, and returns its opcode. */
-  private static int readFrame(InputStream in) throws IOException {
-    int first = readByte(in);
-    long length = readByte(in) & 0x7F;
-    int lengthBytes = length == 126 ? 2 : length == 127 ? 8 : 0;
-    if (lengthBytes > 0) {
-      length = 0;
-      for (int i = 0; i < lengthBytes; i++) {
-        length = (length << 8) | readByte(in);
-      }
-    }
-    for (long i = 0; i < length; i++) {
-      readByte(in);
-    }
-    return first & 0x0F;
-  }
-
-  private static int readByte(InputStream in) throws IOException {
-    int b = in.read();
-    if (b == -1) {
-      throw new IOException("Connection closed without a close frame");
-    }
-    return b;
-  }
-
-  private static void handshake(Socket socket) throws IOException {
-    byte[] nonce = new byte[16];
-    new SecureRandom().nextBytes(nonce);
-    String request =
-        "GET /epics2web/monitor HTTP/1.1\r\n"
-            + "Host: localhost:8080\r\n"
-            + "Upgrade: websocket\r\n"
-            + "Connection: Upgrade\r\n"
-            + "Sec-WebSocket-Key: "
-            + Base64.getEncoder().encodeToString(nonce)
-            + "\r\n"
-            + "Sec-WebSocket-Version: 13\r\n\r\n";
-    socket.getOutputStream().write(request.getBytes(StandardCharsets.US_ASCII));
-
-    // Read the response headers, up to the blank line
-    InputStream in = socket.getInputStream();
-    ByteArrayOutputStream headers = new ByteArrayOutputStream();
-    while (!headers.toString(StandardCharsets.US_ASCII).endsWith("\r\n\r\n")) {
-      int b = in.read();
-      if (b == -1) {
-        fail("Connection closed during handshake: " + headers);
-      }
-      headers.write(b);
-    }
-    String status = headers.toString(StandardCharsets.US_ASCII).split("\r\n")[0];
-    assertEquals("HTTP/1.1 101 ", status.substring(0, Math.min(13, status.length())));
-  }
-
-  /** Sends a short, masked text frame, as a client must. */
-  private static void sendText(OutputStream out, String text) throws IOException {
-    byte[] payload = text.getBytes(StandardCharsets.UTF_8);
-    if (payload.length > 125) {
-      throw new IllegalArgumentException("Only short frames are supported");
-    }
-    byte[] mask = new byte[4];
-    new SecureRandom().nextBytes(mask);
-
-    out.write(0x81); // Final frame, text
-    out.write(0x80 | payload.length); // Masked
-    out.write(mask);
-    for (int i = 0; i < payload.length; i++) {
-      out.write(payload[i] ^ mask[i % 4]);
-    }
-    out.flush();
   }
 }

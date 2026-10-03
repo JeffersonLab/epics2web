@@ -21,3 +21,59 @@ record(calc,"HELLO") {
   field(INPA, "counter_HELLO.VAL")
   field(VAL, "0")
 }
+
+# Strings of 15000 characters that change 10 times a second, so StalledClientTest can fill a
+# client's TCP buffers in seconds
+record(calc,"big_counter") {
+  field(SCAN, ".1 second")
+  field(CALC, "A+1")
+  field(INPA, "big_counter")
+  field(FLNK, "big_string_1")
+}
+record(printf,"big_string_1") {
+  field(FMT, "%015000d")
+  field(INP0, "big_counter")
+  field(SIZV, "15001")
+  field(FLNK, "big_string_2")
+}
+record(printf,"big_string_2") {
+  field(FMT, "%015000d")
+  field(INP0, "big_counter")
+  field(SIZV, "15001")
+  field(FLNK, "big_string_3")
+}
+record(printf,"big_string_3") {
+  field(FMT, "%015000d")
+  field(INP0, "big_counter")
+  field(SIZV, "15001")
+  field(FLNK, "big_string_4")
+}
+record(printf,"big_string_4") {
+  field(FMT, "%015000d")
+  field(INP0, "big_counter")
+  field(SIZV, "15001")
+  field(FLNK, "big_string_5")
+}
+record(printf,"big_string_5") {
+  field(FMT, "%015000d")
+  field(INP0, "big_counter")
+  field(SIZV, "15001")
+  field(FLNK, "big_string_6")
+}
+record(printf,"big_string_6") {
+  field(FMT, "%015000d")
+  field(INP0, "big_counter")
+  field(SIZV, "15001")
+  field(FLNK, "big_string_7")
+}
+record(printf,"big_string_7") {
+  field(FMT, "%015000d")
+  field(INP0, "big_counter")
+  field(SIZV, "15001")
+  field(FLNK, "big_string_8")
+}
+record(printf,"big_string_8") {
+  field(FMT, "%015000d")
+  field(INP0, "big_counter")
+  field(SIZV, "15001")
+}

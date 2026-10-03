@@ -56,6 +56,13 @@ public class Application implements ServletContextListener {
   /** A WebSocket session with no message or pong for this long is closed. */
   static final long TIMEOUT_SECONDS = getSecondsFromEnv("WEBSOCKET_TIMEOUT_SECONDS", 60);
 
+  /**
+   * How long a write to a WebSocket session may block, such as when the client stops reading,
+   * before Tomcat closes the session. Tomcat's own default is 20 seconds.
+   */
+  public static final long SEND_TIMEOUT_SECONDS =
+      getSecondsFromEnv("WEBSOCKET_SEND_TIMEOUT_SECONDS", 20);
+
   private static ScheduledExecutorService timeoutExecutor = null;
   private static ExecutorService callbackExecutor = null;
   private static ExecutorService writerExecutor = null;
@@ -102,10 +109,12 @@ public class Application implements ServletContextListener {
             try {
               while (true) {
                 if (session.isOpen()) {
-                  String msg =
-                      writequeue.take(); // Block until msg to deliver or InterruptedException
+                  String msg = writequeue.take(); // Block until msg to deliver or queue closed
 
-                  if (msg != null) {
+                  if (msg == null) {
+                    LOGGER.log(Level.FINEST, "Session {0} closed; shutting down write thread", id);
+                    break;
+                  } else {
                     try {
                       session.getBasicRemote().sendText(msg);
                     } catch (IllegalStateException
@@ -163,8 +172,9 @@ public class Application implements ServletContextListener {
 
     LOGGER.log(
         Level.INFO,
-        "Pinging WebSocket sessions every {0} s; closing those with no message or pong for {1} s",
-        new Object[] {PING_INTERVAL_SECONDS, TIMEOUT_SECONDS});
+        "Pinging WebSocket sessions every {0} s; closing those with no message or pong for {1} s,"
+            + " or with a write blocked for {2} s",
+        new Object[] {PING_INTERVAL_SECONDS, TIMEOUT_SECONDS, SEND_TIMEOUT_SECONDS});
     if (TIMEOUT_SECONDS <= PING_INTERVAL_SECONDS) {
       LOGGER.log(
           Level.WARNING,

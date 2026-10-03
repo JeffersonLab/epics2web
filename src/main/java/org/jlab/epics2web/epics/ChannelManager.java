@@ -316,6 +316,16 @@ public class ChannelManager {
   }
 
   /**
+   * Return the number of channels open in the CA context, including any no monitor tracks, such as
+   * one that failed to close.
+   *
+   * @return The channel count
+   */
+  public int getChannelCount() {
+    return context == null ? 0 : context.getChannels().length;
+  }
+
+  /**
    * Returns an unmodifiable map of listeners to their PVs for informational purposes.
    *
    * @return The listener to PVs map

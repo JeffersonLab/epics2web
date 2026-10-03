@@ -44,6 +44,7 @@ public class WebConsole extends HttpServlet {
 
     request.setAttribute("monitorMap", monitorMap);
     request.setAttribute("clientMap", clientMap);
+    request.setAttribute("channelCount", channelManager.getChannelCount());
 
     request.getRequestDispatcher("/WEB-INF/views/console.jsp").forward(request, response);
   }
