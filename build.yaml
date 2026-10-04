@@ -15,6 +15,7 @@ services:
       WEBSOCKET_SEND_TIMEOUT_SECONDS: 3
       # Short, so HealthcheckTest runs in seconds
       HEALTHCHECK_GRACE_SECONDS: 2
+      FROZEN_CHECK_SECONDS: 1
     build:
       context: .
       dockerfile: Dockerfile

@@ -1,6 +1,7 @@
 package org.jlab.epics2web;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -77,12 +78,37 @@ public class HealthcheckTest {
       assertTrue("Reported after only " + reportedAfter + " ms", reportedAfter >= 2_000);
       assertEquals(200, get("healthcheck").statusCode());
       assertEquals(503, get("healthcheck?strict=true").statusCode());
+
+      // The IOC is down, so restarting epics2web wouldn't help: not frozen. With
+      // FROZEN_CHECK_SECONDS 1, the detector has probed it within 2 s of the grace period ending.
+      Thread.sleep(3_000);
+      assertFalse(entry(get("healthcheck"), "channel1").containsKey("frozen"));
+      assertEquals(200, get("healthcheck?frozen=true").statusCode());
     } finally {
       docker("start", "softioc");
       waitForEntry("channel1", false); // Reconnected
       socket.abort();
     }
     assertEquals(200, get("healthcheck?strict=true").statusCode());
+  }
+
+  /**
+   * Working monitors aren't frozen. HELLO changes every 0.2 s; channel1 never changes. 10 s is
+   * longer than the 6 s after which a quiet PV is probed, with FROZEN_CHECK_SECONDS 1.
+   */
+  @Test
+  public void workingMonitorsAreNotFrozen() throws Exception {
+    WebSocket hello = monitor("HELLO");
+    WebSocket channel1 = monitor("channel1");
+    try {
+      Thread.sleep(10_000);
+      assertEquals(200, get("healthcheck?frozen=true").statusCode());
+      assertNull(entry(get("healthcheck"), "HELLO"));
+      assertNull(entry(get("healthcheck"), "channel1"));
+    } finally {
+      hello.abort();
+      channel1.abort();
+    }
   }
 
   private static WebSocket monitor(String pv) {

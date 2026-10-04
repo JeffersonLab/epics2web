@@ -12,12 +12,14 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.jlab.epics2web.Application;
 import org.jlab.epics2web.epics.ChannelManager;
 import org.jlab.epics2web.epics.ChannelMonitor;
+import org.jlab.epics2web.epics.FrozenPvDetector;
 
 /**
  * Controller for Healthcheck page. Return 200 OK, for healthy Return 503 Service Unavailable for
@@ -48,8 +50,11 @@ public class Healthcheck extends HttpServlet {
     // Strict mode answers 503 when a PV is reported, for monitoring that alerts on PVs. The default
     // answers 200 whenever the server is up, for load balancers: an IOC being down affects every
     // instance alike, and restarting the server doesn't bring it back.
-    String strictParam = request.getParameter("strict");
-    boolean strict = strictParam != null && !"false".equalsIgnoreCase(strictParam);
+    boolean strict = isSet(request.getParameter("strict"));
+
+    // Frozen mode answers 503 when a PV is frozen: its monitor stopped working while the IOC still
+    // serves it, which a restart is expected to fix. See FrozenPvDetector.
+    boolean frozenMode = isSet(request.getParameter("frozen"));
 
     boolean healthy = true;
 
@@ -57,7 +62,7 @@ public class Healthcheck extends HttpServlet {
 
     Instant now = Instant.now();
 
-    JsonArrayBuilder unhealthyChannelArray = Json.createArrayBuilder();
+    Map<String, JsonObjectBuilder> entries = new LinkedHashMap<>();
 
     for (Map.Entry<String, ChannelMonitor> entry : monitorMap.entrySet()) {
       String pv = entry.getKey();
@@ -83,9 +88,33 @@ public class Healthcheck extends HttpServlet {
         unhealthyChannel.add("state", state.name());
         unhealthyChannel.add(
             "disconnected_minutes", String.format("%.1f", notConnected.toSeconds() / 60.0));
-        unhealthyChannelArray.add(unhealthyChannel);
+        entries.put(pv, unhealthyChannel);
       }
     }
+
+    Map<String, FrozenPvDetector.FrozenPv> frozen =
+        Application.frozenPvDetector == null ? Map.of() : Application.frozenPvDetector.getFrozen();
+
+    for (Map.Entry<String, FrozenPvDetector.FrozenPv> entry : frozen.entrySet()) {
+      String pv = entry.getKey();
+      ChannelMonitor monitor = monitorMap.get(pv);
+      JsonObjectBuilder frozenChannel =
+          entries.computeIfAbsent(
+              pv,
+              k ->
+                  Json.createObjectBuilder()
+                      .add("name", pv)
+                      .add("state", monitor == null ? "UNKNOWN" : monitor.getState().name()));
+      frozenChannel.add("frozen", true);
+      frozenChannel.add(
+          "frozen_minutes",
+          String.format(
+              "%.1f", Duration.between(entry.getValue().since(), now).toSeconds() / 60.0));
+      frozenChannel.add("frozen_reason", entry.getValue().reason());
+    }
+
+    JsonArrayBuilder unhealthyChannelArray = Json.createArrayBuilder();
+    entries.values().forEach(unhealthyChannelArray::add);
 
     response.setContentType("application/json");
 
@@ -93,7 +122,7 @@ public class Healthcheck extends HttpServlet {
 
     response.setStatus(HttpServletResponse.SC_OK);
 
-    if (strict && !healthy) {
+    if ((strict && !healthy) || (frozenMode && !frozen.isEmpty())) {
       response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
     }
 
@@ -108,5 +137,9 @@ public class Healthcheck extends HttpServlet {
     if (error) {
       LOGGER.log(Level.SEVERE, "PrintWriter Error");
     }
+  }
+
+  private static boolean isSet(String param) {
+    return param != null && !"false".equalsIgnoreCase(param);
   }
 }
