@@ -15,6 +15,7 @@ import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 import org.jlab.epics2web.Application;
 
 /**
@@ -37,6 +38,11 @@ public class CAGet extends HttpServlet {
    * @throws ServletException if a servlet-specific error occurs
    * @throws IOException if an I/O error occurs
    */
+  /** The most PVs one request may ask for. */
+  public static final int MAX_PVS = 500;
+
+  private static final Pattern JSONP_CALLBACK = Pattern.compile("[A-Za-z_$][A-Za-z0-9_$.]*");
+
   @Override
   protected void doGet(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
@@ -48,12 +54,21 @@ public class CAGet extends HttpServlet {
 
     String errorReason = null;
     List<DBR> dbrList = null;
-    String jsonp = null;
-    String[] pvs = null;
+    String[] pvs = request.getParameterValues("pv");
+    String jsonp = request.getParameter("jsonp");
+
+    if (pvs != null && pvs.length > MAX_PVS) {
+      sendBadRequest(response, "At most " + MAX_PVS + " PVs may be requested at once");
+      return;
+    }
+
+    // The callback name is written into the response as script, so allow only a name
+    if (jsonp != null && !JSONP_CALLBACK.matcher(jsonp).matches()) {
+      sendBadRequest(response, "The jsonp callback must be a JavaScript name such as a.b_c");
+      return;
+    }
 
     try {
-      pvs = request.getParameterValues("pv");
-      jsonp = request.getParameter("jsonp");
       String n = request.getParameter("n");
 
       boolean enumLabel = true;
@@ -109,5 +124,12 @@ public class CAGet extends HttpServlet {
     if (error) {
       LOGGER.log(Level.SEVERE, "PrintWriter Error");
     }
+  }
+
+  private static void sendBadRequest(HttpServletResponse response, String reason)
+      throws IOException {
+    response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+    response.setContentType("application/json");
+    response.getWriter().write(Json.createObjectBuilder().add("error", reason).build().toString());
   }
 }

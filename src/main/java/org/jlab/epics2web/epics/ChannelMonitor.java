@@ -3,6 +3,7 @@ package org.jlab.epics2web.epics;
 import com.cosylab.epics.caj.CAJChannel;
 import com.cosylab.epics.caj.CAJContext;
 import gov.aps.jca.CAException;
+import gov.aps.jca.Channel;
 import gov.aps.jca.Monitor;
 import gov.aps.jca.dbr.DBR;
 import gov.aps.jca.dbr.DBRType;
@@ -95,7 +96,15 @@ public class ChannelMonitor implements Closeable {
     this.callbackExecutor = callbackExecutor;
 
     long start = System.currentTimeMillis();
-    channel = (CAJChannel) context.createChannel(pv, new TimedChannelConnectionListener());
+    TimedChannelConnectionListener connectionListener = new TimedChannelConnectionListener();
+    channel = (CAJChannel) context.createChannel(pv, connectionListener);
+
+    // CAJ shares channels by name, so this one may already be connected for another user, such as
+    // a /caget, and then no connection event comes
+    if (channel.getConnectionState() == Channel.ConnectionState.CONNECTED) {
+      connectionListener.connectionChanged(new ConnectionEvent(channel, true));
+    }
+
     context.flushIO();
     long stop = System.currentTimeMillis();
     float elapsedSeconds = (stop - start) / 1000.0f;
