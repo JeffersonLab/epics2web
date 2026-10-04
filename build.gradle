@@ -46,7 +46,7 @@ dependencies {
     implementation 'jakarta.servlet.jsp.jstl:jakarta.servlet.jsp.jstl-api:3.0.0',
                    'org.glassfish.web:jakarta.servlet.jsp.jstl:3.0.0',
                    'org.glassfish:jakarta.json:2.0.1',
-                   'org.epics:jca:2.4.10'
+                   'org.epics:jca:2.4.12'
     providedCompile 'jakarta.servlet:jakarta.servlet-api:6.1.0',
                     'jakarta.websocket:jakarta.websocket-api:2.2.0',
                     'jakarta.websocket:jakarta.websocket-client-api:2.2.0'
