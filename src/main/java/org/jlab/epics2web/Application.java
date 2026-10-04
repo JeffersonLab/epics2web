@@ -15,6 +15,7 @@ import jakarta.websocket.SendHandler;
 import jakarta.websocket.SendResult;
 import jakarta.websocket.Session;
 import java.io.IOException;
+import java.time.Clock;
 import java.time.Duration;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
@@ -26,8 +27,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.LockSupport;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.jlab.epics2web.epics.CaProbeFactory;
 import org.jlab.epics2web.epics.ChannelManager;
 import org.jlab.epics2web.epics.ContextFactory;
+import org.jlab.epics2web.epics.FrozenPvDetector;
 import org.jlab.epics2web.websocket.WebSocketSessionManager;
 import org.jlab.epics2web.websocket.WriteQueue;
 import org.jlab.epics2web.websocket.WriteStrategy;
@@ -45,6 +48,9 @@ public class Application implements ServletContextListener {
 
   public static ChannelManager channelManager = null;
   public static WebSocketSessionManager sessionManager = null;
+
+  /** Null if frozen PV detection is off. */
+  public static FrozenPvDetector frozenPvDetector = null;
 
   private static final int TIMEOUT_EXECUTOR_POOL_SIZE = 1;
   private static final Logger LOGGER = Logger.getLogger(Application.class.getName());
@@ -67,11 +73,23 @@ public class Application implements ServletContextListener {
   public static final long HEALTHCHECK_GRACE_SECONDS =
       getSecondsFromEnv("HEALTHCHECK_GRACE_SECONDS", 30);
 
+  /** Whether to look for frozen PVs; FROZEN_PV_CHECK=false turns it off. */
+  static final boolean FROZEN_PV_CHECK =
+      !"false".equalsIgnoreCase(System.getenv("FROZEN_PV_CHECK"));
+
+  /** How often to look for frozen PVs; FrozenPvDetector derives its other timings from it. */
+  static final long FROZEN_CHECK_SECONDS = getSecondsFromEnv("FROZEN_CHECK_SECONDS", 10);
+
+  /** The most PVs probed at once in the independent context. */
+  private static final int FROZEN_CHECK_MAX_PROBES = 20;
+
   private static ScheduledExecutorService timeoutExecutor = null;
   private static ExecutorService callbackExecutor = null;
   private static ExecutorService writerExecutor = null;
   private static ScheduledExecutorService sessionCheckExecutor = null;
   private static ExecutorService pingExecutor = null;
+  private static ScheduledExecutorService frozenCheckExecutor = null;
+  private static volatile CAJContext probeContext = null;
   private static ContextFactory factory = null;
   private static volatile CAJContext context = null;
 
@@ -205,6 +223,10 @@ public class Application implements ServletContextListener {
       LOGGER.log(Level.SEVERE, "Unable to register context callbacks", e);
     }
 
+    if (FROZEN_PV_CHECK) {
+      startFrozenPvDetection();
+    }
+
     if (WRITE_STRATEGY == WriteStrategy.ASYNC_QUEUE) {
       writerExecutor.execute(
           new Runnable() {
@@ -296,6 +318,22 @@ public class Application implements ServletContextListener {
       pingExecutor.shutdownNow();
     }
 
+    if (frozenCheckExecutor != null) {
+      frozenCheckExecutor.shutdownNow();
+    }
+
+    if (frozenPvDetector != null) {
+      frozenPvDetector.close();
+    }
+
+    if (probeContext != null) {
+      try {
+        probeContext.destroy();
+      } catch (CAException e) {
+        LOGGER.log(Level.WARNING, "Unable to destroy probe context", e);
+      }
+    }
+
     if (timeoutExecutor != null) {
       try {
         if (!timeoutExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
@@ -327,6 +365,46 @@ public class Application implements ServletContextListener {
         LOGGER.log(Level.SEVERE, "Interrupted while waiting for threads to stop", e);
       }
     }
+  }
+
+  /**
+   * Look for frozen PVs with subscriptions in a second CA context, which has its own virtual
+   * circuits. See FrozenPvDetector.
+   */
+  private void startFrozenPvDetection() {
+    try {
+      probeContext = factory.newContext();
+    } catch (Exception e) {
+      LOGGER.log(Level.SEVERE, "Unable to create CA context for frozen PV detection", e);
+      return;
+    }
+
+    frozenPvDetector =
+        new FrozenPvDetector(
+            () -> FrozenPvDetector.viewsOf(channelManager.getMonitorMap()),
+            new CaProbeFactory(probeContext),
+            Clock.systemUTC(),
+            Duration.ofSeconds(HEALTHCHECK_GRACE_SECONDS),
+            Duration.ofSeconds(FROZEN_CHECK_SECONDS),
+            FROZEN_CHECK_MAX_PROBES);
+
+    // Its own thread: closing a probe can wait briefly for the IOC
+    frozenCheckExecutor =
+        Executors.newSingleThreadScheduledExecutor(
+            new CustomPrefixThreadFactory("Frozen-PV-Check-"));
+    frozenCheckExecutor.scheduleWithFixedDelay(
+        () -> {
+          try {
+            frozenPvDetector.check();
+          } catch (RuntimeException e) { // An exception would cancel the schedule
+            LOGGER.log(Level.WARNING, "Unable to check for frozen PVs", e);
+          }
+        },
+        FROZEN_CHECK_SECONDS,
+        FROZEN_CHECK_SECONDS,
+        TimeUnit.SECONDS);
+
+    LOGGER.log(Level.INFO, "Checking for frozen PVs every {0} s", FROZEN_CHECK_SECONDS);
   }
 
   private void registerContextListeners(CAJContext c) throws CAException {

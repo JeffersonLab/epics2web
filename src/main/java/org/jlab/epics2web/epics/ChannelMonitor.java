@@ -20,6 +20,7 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.Set;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -36,6 +37,9 @@ public class ChannelMonitor implements Closeable {
   public static final long TIMEOUT_MILLIS = 3000;
 
   private volatile DBR lastDbr = null;
+
+  /** The number of updates received, including the initial value sent on each (re)subscription. */
+  private final AtomicLong updateCount = new AtomicLong();
 
   /**
    * We don't use TIME typed DBR, so we just track 'received' timestamp (which may differ from IOC
@@ -206,6 +210,10 @@ public class ChannelMonitor implements Closeable {
 
   public Date getLastTimestamp() {
     return lastTimestamp;
+  }
+
+  public long getUpdateCount() {
+    return updateCount.get();
   }
 
   /**
@@ -498,6 +506,7 @@ public class ChannelMonitor implements Closeable {
       DBR dbr = me.getDBR();
 
       lastDbr = dbr;
+      updateCount.incrementAndGet();
       lastTimestamp = new Date();
 
       // Make sure handlers do not call back into CA lib on this callback thread.
