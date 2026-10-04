@@ -13,6 +13,8 @@ services:
       WEBSOCKET_PING_INTERVAL_SECONDS: 2
       WEBSOCKET_TIMEOUT_SECONDS: 5
       WEBSOCKET_SEND_TIMEOUT_SECONDS: 3
+      # Short, so HealthcheckTest runs in seconds
+      HEALTHCHECK_GRACE_SECONDS: 2
     build:
       context: .
       dockerfile: Dockerfile

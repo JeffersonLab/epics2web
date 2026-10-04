@@ -16,6 +16,7 @@ import gov.aps.jca.event.MonitorEvent;
 import gov.aps.jca.event.MonitorListener;
 import java.io.Closeable;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Date;
 import java.util.Set;
 import java.util.concurrent.*;
@@ -46,7 +47,11 @@ public class ChannelMonitor implements Closeable {
       new AtomicReference<>(
           MonitorState
               .CONNECTING); // We don't use CAJChannel.getConnectionState() because we want to still
+
   // be "connecting" during enum label fetch
+  /** When the connection state last changed, or when the monitor was created. */
+  private volatile Instant stateChanged = Instant.now();
+
   private final AtomicReference<String[]> enumLabels =
       new AtomicReference<>(
           null); // volatile arrays are unsafe due to individual indicies so use AtomicReference
@@ -177,6 +182,22 @@ public class ChannelMonitor implements Closeable {
 
   public MonitorState getState() {
     return state.get();
+  }
+
+  /**
+   * Return when the connection state last changed, or when the monitor was created if it never has.
+   * Unlike getLastTimestamp, this is the time of a disconnect, not of the last value change.
+   *
+   * @return The time
+   */
+  public Instant getStateChanged() {
+    return stateChanged;
+  }
+
+  private void setState(MonitorState newState) {
+    if (state.getAndSet(newState) != newState) {
+      stateChanged = Instant.now();
+    }
   }
 
   public String getLastValue() {
@@ -358,12 +379,12 @@ public class ChannelMonitor implements Closeable {
                 } else {
                   LOGGER.log(Level.FINEST, "Notifying clients of disconnect from channel: {0}", pv);
 
-                  state.set(MonitorState.DISCONNECTED);
+                  setState(MonitorState.DISCONNECTED);
                   notifyPvInfoAll(false);
                 }
               } catch (CAException e) {
                 LOGGER.log(Level.SEVERE, "Unable to monitor channel", e);
-                state.set(MonitorState.DISCONNECTED);
+                setState(MonitorState.DISCONNECTED);
                 notifyPvInfoAll(false);
               }
             }
@@ -399,7 +420,7 @@ public class ChannelMonitor implements Closeable {
         }
       }
 
-      state.set(MonitorState.CONNECTED);
+      setState(MonitorState.CONNECTED);
       notifyPvInfoAll(true);
     }
 
@@ -428,7 +449,7 @@ public class ChannelMonitor implements Closeable {
                 new Callable<Void>() {
                   @Override
                   public Void call() throws Exception {
-                    state.set(MonitorState.DISCONNECTED);
+                    setState(MonitorState.DISCONNECTED);
 
                     notifyPvInfoAll(false);
 

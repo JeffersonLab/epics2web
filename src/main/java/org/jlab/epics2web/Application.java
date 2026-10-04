@@ -63,6 +63,10 @@ public class Application implements ServletContextListener {
   public static final long SEND_TIMEOUT_SECONDS =
       getSecondsFromEnv("WEBSOCKET_SEND_TIMEOUT_SECONDS", 20);
 
+  /** How long a PV may be disconnected before the healthcheck reports it. */
+  public static final long HEALTHCHECK_GRACE_SECONDS =
+      getSecondsFromEnv("HEALTHCHECK_GRACE_SECONDS", 30);
+
   private static ScheduledExecutorService timeoutExecutor = null;
   private static ExecutorService callbackExecutor = null;
   private static ExecutorService writerExecutor = null;
