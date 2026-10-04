@@ -199,7 +199,7 @@ public class MonitorEndpoint {
       }
     } catch (
         IllegalStateException e) { // state might be bad for various reasons so don't dump stack
-      LOGGER.log(Level.INFO, "Unable to handle client message", e.getMessage());
+      LOGGER.log(Level.INFO, "Unable to handle client message: {0}", e.getMessage());
     } catch (Exception e) {
       LOGGER.log(Level.WARNING, "Unable to handle client message: " + message, e);
     }
