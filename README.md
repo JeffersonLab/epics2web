@@ -64,6 +64,11 @@ The server sends each WebSocket client a ping every **WEBSOCKET_PING_INTERVAL_SE
 A client that stops reading makes writes to it block once the network buffers fill.  When a write blocks for **WEBSOCKET_SEND_TIMEOUT_SECONDS** (default 20, Tomcat's own default), Tomcat closes the session.  This setting applies only on Tomcat.
 
 
+### Healthcheck
+`/healthcheck` returns a JSON array of monitored PVs that haven't been connected for longer than **HEALTHCHECK_GRACE_SECONDS** (default 30), counted from when they disconnected, or from when monitoring began for a PV that never connected.  Each entry has the PV's `name`, its `state` (`DISCONNECTED`, or `CONNECTING` if it never connected), and `disconnected_minutes`.
+
+By default the response is 200 whenever the server is up, which suits load balancers: an IOC being down affects every instance alike.  With `?strict=true` the response is 503 when a PV that was connected has disconnected, which suits monitoring that should alert on that, such as Nagios.  PVs that never connected are listed but don't fail strict mode, since they may simply not exist.
+
 ### Logging
 This app is designed to run on Tomcat so [Tomcat logging configuration](https://tomcat.apache.org/tomcat-9.0-doc/logging.html) applies.  We use the built-in JVM logging library, which Tomcat uses with some slight modifications to support separate classloaders.  In the past we bundled an application [logging.properites](https://github.com/JeffersonLab/epics2web/blob/956894699ef1b303907a04720aeb50260ffa72b1/src/main/resources/logging.properties) inside the epics2web.war file.  We no longer do that because it then appears to require repackaging/rebuilding a new version of the app to modify the logging config as the app bundled config overrides the global Tomcat config at conf/logging.properties.  The recommend logging strategy is to now make configuration in the global Tomcat config so as to make it easy to modify logging levels.  An app specific handler can be created.  The global configuration location is generally set by the Tomcat default start script via JVM system properties.  The system properties should look something like: 
 - `-Djava.util.logging.config.file=/usr/share/tomcat/conf/logging.properties`

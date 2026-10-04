@@ -45,6 +45,12 @@ public class Healthcheck extends HttpServlet {
   protected void doGet(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
 
+    // Strict mode answers 503 when a PV is reported, for monitoring that alerts on PVs. The default
+    // answers 200 whenever the server is up, for load balancers: an IOC being down affects every
+    // instance alike, and restarting the server doesn't bring it back.
+    String strictParam = request.getParameter("strict");
+    boolean strict = strictParam != null && !"false".equalsIgnoreCase(strictParam);
+
     boolean healthy = true;
 
     Map<String, ChannelMonitor> monitorMap = channelManager.getMonitorMap();
@@ -56,23 +62,28 @@ public class Healthcheck extends HttpServlet {
     for (Map.Entry<String, ChannelMonitor> entry : monitorMap.entrySet()) {
       String pv = entry.getKey();
       ChannelMonitor monitor = entry.getValue();
+      ChannelMonitor.MonitorState state = monitor.getState();
 
-      // If never an update, then we assume PV doesn't exist.  Might miss some cases.  Better than
-      // nothing health check!
-      if (monitor.getLastTimestamp() != null) {
-        Instant lastTimestamp = monitor.getLastTimestamp().toInstant();
-        Duration duration = Duration.between(now, lastTimestamp);
-        long differenceInSeconds = Math.abs(duration.toSeconds());
+      if (state == ChannelMonitor.MonitorState.CONNECTED) {
+        continue;
+      }
 
-        if (monitor.getState() != ChannelMonitor.MonitorState.CONNECTED
-            && (differenceInSeconds > 30)) {
+      // Time since the PV disconnected, or since monitoring began if it never connected
+      Duration notConnected = Duration.between(monitor.getStateChanged(), now);
+
+      if (notConnected.toSeconds() > Application.HEALTHCHECK_GRACE_SECONDS) {
+        // A PV that never connected may just not exist, such as a mistyped name, so it's listed
+        // but doesn't make strict mode fail
+        if (state == ChannelMonitor.MonitorState.DISCONNECTED) {
           healthy = false;
-          JsonObjectBuilder unhealthyChannel = Json.createObjectBuilder();
-          unhealthyChannel.add("name", pv);
-          unhealthyChannel.add(
-              "disconnected_minutes", String.format("%.1f", differenceInSeconds / 60.0));
-          unhealthyChannelArray.add(unhealthyChannel);
         }
+
+        JsonObjectBuilder unhealthyChannel = Json.createObjectBuilder();
+        unhealthyChannel.add("name", pv);
+        unhealthyChannel.add("state", state.name());
+        unhealthyChannel.add(
+            "disconnected_minutes", String.format("%.1f", notConnected.toSeconds() / 60.0));
+        unhealthyChannelArray.add(unhealthyChannel);
       }
     }
 
@@ -82,7 +93,7 @@ public class Healthcheck extends HttpServlet {
 
     response.setStatus(HttpServletResponse.SC_OK);
 
-    if (!healthy) {
+    if (strict && !healthy) {
       response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
     }
 
