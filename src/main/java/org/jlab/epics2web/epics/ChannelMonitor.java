@@ -63,6 +63,16 @@ public class ChannelMonitor implements Closeable {
   private final ExecutorService callbackExecutor;
   private final String pv;
 
+  /** Guards monitor and closed, so a monitor can't be created after close. */
+  private final Object subscriptionLock = new Object();
+
+  private volatile boolean closed = false;
+
+  /** Released by the monitor's first update, which shows the IOC has the subscription. */
+  private final CountDownLatch firstUpdate = new CountDownLatch(1);
+
+  private final TimedChannelConnectionListener connectionListener;
+
   public enum MonitorState {
     CONNECTING,
     CONNECTED,
@@ -96,7 +106,7 @@ public class ChannelMonitor implements Closeable {
     this.callbackExecutor = callbackExecutor;
 
     long start = System.currentTimeMillis();
-    TimedChannelConnectionListener connectionListener = new TimedChannelConnectionListener();
+    connectionListener = new TimedChannelConnectionListener();
     channel = (CAJChannel) context.createChannel(pv, connectionListener);
 
     // CAJ shares channels by name, so this one may already be connected for another user, such as
@@ -180,25 +190,65 @@ public class ChannelMonitor implements Closeable {
   /**
    * Close the ChannelMonitor.
    *
+   * <p>The channel may be shared with a /caget, which keeps it open after this, so the monitor's
+   * connection listener and subscription are removed here rather than left to the channel's
+   * destruction.
+   *
    * @throws IOException If unable to close
    */
   @Override
   public void close() throws IOException {
     // LOGGER.log(Level.FINEST, "close");
-    if (channel != null) {
-      try {
-        // channel.destroy(); // method is unsafe (can deadlock)
-        // so use context method instead
-        long start = System.currentTimeMillis();
-        context.destroyChannel(
-            channel, false); // Don't force because ChannelManager.get() also uses same context!
-        long stop = System.currentTimeMillis();
-        float elapsedSeconds = (stop - start) / 1000.0f;
-        LOGGER.log(
-            Level.FINEST, "Closed Channel {0} in {1} seconds", new Object[] {pv, elapsedSeconds});
-      } catch (CAException e) {
-        throw new IOException("Unable to close channel", e);
+    Monitor subscription;
+    synchronized (subscriptionLock) {
+      closed = true;
+      subscription = monitor;
+    }
+
+    try {
+      channel.removeConnectionListener(connectionListener);
+    } catch (CAException | IllegalStateException e) {
+      LOGGER.log(Level.FINE, "Unable to remove connection listener from " + pv, e);
+    }
+
+    if (subscription != null) {
+      clearSubscription(subscription);
+    }
+
+    try {
+      // channel.destroy(); // method is unsafe (can deadlock)
+      // so use context method instead
+      long start = System.currentTimeMillis();
+      context.destroyChannel(
+          channel, false); // Don't force because ChannelManager.get() also uses same context!
+      long stop = System.currentTimeMillis();
+      float elapsedSeconds = (stop - start) / 1000.0f;
+      LOGGER.log(
+          Level.FINEST, "Closed Channel {0} in {1} seconds", new Object[] {pv, elapsedSeconds});
+    } catch (CAException | IllegalStateException e) { // e.g. the IOC dropped the connection
+      throw new IOException("Unable to close channel " + pv, e);
+    }
+  }
+
+  /**
+   * Cancel the subscription once the IOC has it. CAJ sends a cancel at once but queues an add until
+   * a flush, so a cancel soon after the add can reach the IOC first. The IOC then rejects it (bad
+   * monitor subscription identifier) and drops the connection, with every channel on it.
+   */
+  private void clearSubscription(Monitor subscription) {
+    try {
+      if (channel.getConnectionState() == Channel.ConnectionState.CONNECTED
+          && !firstUpdate.await(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)) {
+        LOGGER.log(Level.FINE, "No update from {0} before clearing its monitor", pv);
       }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
+
+    try {
+      subscription.clear();
+    } catch (CAException | IllegalStateException e) {
+      LOGGER.log(Level.FINE, "Unable to clear monitor of " + pv, e);
     }
   }
 
@@ -288,6 +338,10 @@ public class ChannelMonitor implements Closeable {
                   "Channel {0} Connection Changed - Connected: {1}",
                   new Object[] {pv, ce.isConnected()});
 
+              if (closed) {
+                return;
+              }
+
               try {
                 future.cancel(
                     false); // only needed for initial connection, on reconnects this will result in
@@ -324,7 +378,11 @@ public class ChannelMonitor implements Closeable {
      */
     private void handleRegularConnectionOrReconnect() throws IllegalStateException, CAException {
       // Only create monitor on first connect, afterward reconnect uses same old monitor
-      synchronized (this) {
+      synchronized (subscriptionLock) {
+        if (closed) {
+          // Its channel may still be open for others; a subscription now would never be cleared
+          return;
+        }
         if (monitor == null) {
           LOGGER.log(Level.FINEST, "Creating {0} Channel Monitor", pv);
           // We generally don't handle arrays,
@@ -414,6 +472,8 @@ public class ChannelMonitor implements Closeable {
      */
     @Override
     public void monitorChanged(MonitorEvent me) {
+      firstUpdate.countDown();
+
       DBR dbr = me.getDBR();
 
       lastDbr = dbr;
