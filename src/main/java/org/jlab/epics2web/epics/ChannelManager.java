@@ -3,9 +3,13 @@ package org.jlab.epics2web.epics;
 import com.cosylab.epics.caj.CAJChannel;
 import com.cosylab.epics.caj.CAJContext;
 import gov.aps.jca.CAException;
+import gov.aps.jca.Channel;
 import gov.aps.jca.TimeoutException;
 import gov.aps.jca.dbr.DBR;
 import gov.aps.jca.dbr.DBRType;
+import gov.aps.jca.event.ConnectionEvent;
+import gov.aps.jca.event.ConnectionListener;
+import gov.aps.jca.event.GetListener;
 import jakarta.json.JsonObjectBuilder;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -15,9 +19,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -153,6 +161,12 @@ public class ChannelManager {
   /**
    * Perform a synchronous (blocking) CA-GET request of the given PVs.
    *
+   * <p>Each PV's channel is created and destroyed inside monitorMap.compute, like a monitor's, so
+   * it can't race a monitor or another get of the same PV: CAJ shares channels by name, and a
+   * channel created while the same-named channel is being destroyed is handed back closed. The
+   * request waits only for its own channels, not for all pending IO in the shared context, so a PV
+   * that doesn't connect fails only the requests that ask for it.
+   *
    * @param pvs The EPICS CA PV names
    * @param enumLabel true if result should be enum label (ignored if not of type enum); false for
    *     numeric value
@@ -168,25 +182,37 @@ public class ChannelManager {
 
     if (pvs != null && pvs.length > 0) {
       CAJChannel[] channels = new CAJChannel[pvs.length];
+      ConnectionLatch[] connections = new ConnectionLatch[pvs.length];
 
       try {
         for (int i = 0; i < pvs.length; i++) {
-          channels[i] = (CAJChannel) context.createChannel(pvs[i]);
+          connections[i] = new ConnectionLatch();
+          channels[i] = createChannel(pvs[i], connections[i]);
         }
+        context.flushIO();
 
-        context.pendIO(PEND_TIMEOUT_SECONDS);
-
+        long deadline = deadline();
         for (int i = 0; i < pvs.length; i++) {
-          dbrList.add(doGet(channels[i], enumLabel));
+          if (!connections[i].await(channels[i], deadline)) {
+            throw new TimeoutException(
+                "Channel " + pvs[i] + " didn't connect within " + PEND_TIMEOUT_SECONDS + " s");
+          }
         }
 
-        context.pendIO(PEND_TIMEOUT_SECONDS);
+        List<CompletableFuture<DBR>> results = new ArrayList<>();
+        for (CAJChannel channel : channels) {
+          results.add(requestGet(channel, enumLabel));
+        }
+        context.flushIO();
+
+        deadline = deadline();
+        for (int i = 0; i < pvs.length; i++) {
+          dbrList.add(awaitGet(pvs[i], results.get(i), deadline));
+        }
       } finally {
         for (int i = 0; i < pvs.length; i++) {
           if (channels[i] != null) {
-            context.destroyChannel(
-                channels[i], false); // ChannelMonitor.close() also uses this context so don't force
-            // channels[i].destroy(); // This can deadlock
+            destroyChannel(pvs[i], channels[i], connections[i]);
           }
         }
       }
@@ -195,21 +221,117 @@ public class ChannelManager {
     return dbrList;
   }
 
-  private DBR doGet(CAJChannel channel, boolean enumLabel) throws CAException {
-    DBR dbr;
+  private static long deadline() {
+    return System.nanoTime() + (long) (PEND_TIMEOUT_SECONDS * 1_000_000_000L);
+  }
+
+  private CAJChannel createChannel(String pv, ConnectionListener listener) throws CAException {
+    CAJChannel[] channel = new CAJChannel[1];
+    try {
+      monitorMap.compute(
+          pv,
+          (k, monitor) -> {
+            try {
+              channel[0] = (CAJChannel) context.createChannel(pv, listener);
+            } catch (CAException e) {
+              throw new UncheckedCAException(e);
+            }
+            return monitor;
+          });
+    } catch (UncheckedCAException e) {
+      throw e.getCause();
+    }
+    return channel[0];
+  }
+
+  private void destroyChannel(String pv, CAJChannel channel, ConnectionListener listener) {
+    try {
+      channel.removeConnectionListener(listener); // The channel may be shared with a monitor
+    } catch (CAException | IllegalStateException e) {
+      LOGGER.log(Level.FINE, "Unable to remove connection listener from " + pv, e);
+    }
+
+    monitorMap.compute(
+        pv,
+        (k, monitor) -> {
+          try {
+            // Don't force: a monitor may share this channel
+            context.destroyChannel(channel, false);
+          } catch (CAException | IllegalStateException e) {
+            LOGGER.log(Level.WARNING, "Unable to destroy channel " + pv, e);
+          }
+          return monitor;
+        });
+  }
+
+  private CompletableFuture<DBR> requestGet(CAJChannel channel, boolean enumLabel)
+      throws CAException {
+    CompletableFuture<DBR> result = new CompletableFuture<>();
+    GetListener listener =
+        event -> {
+          if (event.getStatus().isSuccessful()) {
+            result.complete(event.getDBR());
+          } else {
+            result.completeExceptionally(
+                new CAException(
+                    "Could not get channel " + channel.getName() + ": " + event.getStatus()));
+          }
+        };
 
     try {
       if (enumLabel && channel.getFieldType().isENUM()) {
-        dbr = channel.get(DBRType.STRING, 1);
+        channel.get(DBRType.STRING, 1, listener);
       } else {
-        dbr = channel.get();
+        channel.get(channel.getFieldType(), channel.getElementCount(), listener);
       }
-    } catch (Exception e) { // wrap and add channel name to help with debugging (catch runtime
-      // IllegalStateException).
+    } catch (IllegalStateException e) { // wrap and add channel name to help with debugging
       throw new CAException("Could not get channel " + channel.getName(), e);
     }
 
-    return dbr;
+    return result;
+  }
+
+  private static DBR awaitGet(String pv, CompletableFuture<DBR> result, long deadline)
+      throws CAException, TimeoutException {
+    try {
+      return result.get(deadline - System.nanoTime(), TimeUnit.NANOSECONDS);
+    } catch (java.util.concurrent.TimeoutException e) {
+      throw new TimeoutException(
+          "Channel " + pv + " didn't answer within " + PEND_TIMEOUT_SECONDS + " s");
+    } catch (ExecutionException e) {
+      if (e.getCause() instanceof CAException cause) {
+        throw cause;
+      }
+      throw new CAException("Could not get channel " + pv, e.getCause());
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new TimeoutException("Interrupted while getting " + pv, e);
+    }
+  }
+
+  /** Lets a get wait for its own channel to connect. */
+  private static class ConnectionLatch implements ConnectionListener {
+    private final CountDownLatch connected = new CountDownLatch(1);
+
+    @Override
+    public void connectionChanged(ConnectionEvent event) {
+      if (event.isConnected()) {
+        connected.countDown();
+      }
+    }
+
+    boolean await(Channel channel, long deadline) throws TimeoutException {
+      // A channel shared with a monitor may be connected already, with no event to come
+      if (channel.getConnectionState() == Channel.ConnectionState.CONNECTED) {
+        return true;
+      }
+      try {
+        return connected.await(deadline - System.nanoTime(), TimeUnit.NANOSECONDS);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new TimeoutException("Interrupted while connecting to " + channel.getName(), e);
+      }
+    }
   }
 
   /**
@@ -242,13 +364,13 @@ public class ChannelManager {
                   try {
                     m = new ChannelMonitor(pv, context, timeoutExecutor, callbackExecutor);
                   } catch (CAException e) {
-                    throw new MonitorCreationException(e);
+                    throw new UncheckedCAException(e);
                   }
                 }
                 m.addListener(listener);
                 return m;
               });
-    } catch (MonitorCreationException e) {
+    } catch (UncheckedCAException e) {
       throw e.getCause();
     }
 
@@ -335,8 +457,8 @@ public class ChannelManager {
   }
 
   /** Carries a checked CAException out of a ConcurrentHashMap remapping function. */
-  private static class MonitorCreationException extends RuntimeException {
-    MonitorCreationException(CAException cause) {
+  private static class UncheckedCAException extends RuntimeException {
+    UncheckedCAException(CAException cause) {
       super(cause);
     }
 
