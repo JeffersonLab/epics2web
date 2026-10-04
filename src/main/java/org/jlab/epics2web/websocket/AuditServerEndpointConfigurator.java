@@ -20,8 +20,8 @@ public class AuditServerEndpointConfigurator extends ServerEndpointConfig.Config
       ServerEndpointConfig config, HandshakeRequest request, HandshakeResponse response) {
 
     Map<String, List<String>> headers = request.getHeaders();
-    String remoteAddr =
-        (String) ((HttpSession) request.getHttpSession()).getAttribute("remoteAddr");
+    HttpSession session = (HttpSession) request.getHttpSession();
+    String remoteAddr = session == null ? null : (String) session.getAttribute("remoteAddr");
 
     // We don't use config.getUserProperties.add because it isn't one-to-one with a web socket
     // connection
