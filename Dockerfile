@@ -1,5 +1,5 @@
-ARG BUILD_IMAGE=gradle:9-jdk21-alpine
-ARG RUN_IMAGE=tomcat:11-jdk21
+ARG BUILD_IMAGE=gradle:9.0.0-jdk21-alpine
+ARG RUN_IMAGE=tomcat:11.0.26-jdk21
 
 ################## Stage 0
 FROM ${BUILD_IMAGE} AS builder
