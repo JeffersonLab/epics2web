@@ -16,6 +16,7 @@
                     <th>CA Get</th>
                     <th>CA Monitor</th>
                     <th>CA Monitor Console</th>
+                    <th>Reports</th>
                 </tr>
             </thead>
             <tbody>
@@ -23,6 +24,7 @@
                     <td><a href="test-caget">Test</a></td>
                     <td><a href="test-camonitor">Test</a></td>
                     <td><a href="console">Console</a></td>
+                    <td><a href="disconnected-pvs">Disconnected PVs</a></td>
                 </tr>
             </tbody>
         </table>

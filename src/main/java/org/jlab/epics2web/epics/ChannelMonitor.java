@@ -2,6 +2,7 @@ package org.jlab.epics2web.epics;
 
 import com.cosylab.epics.caj.CAJChannel;
 import com.cosylab.epics.caj.CAJContext;
+import com.cosylab.epics.caj.impl.CATransport;
 import gov.aps.jca.CAException;
 import gov.aps.jca.Channel;
 import gov.aps.jca.Monitor;
@@ -16,6 +17,7 @@ import gov.aps.jca.event.MonitorEvent;
 import gov.aps.jca.event.MonitorListener;
 import java.io.Closeable;
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.time.Instant;
 import java.util.Date;
 import java.util.Set;
@@ -55,6 +57,12 @@ public class ChannelMonitor implements Closeable {
   // be "connecting" during enum label fetch
   /** When the connection state last changed, or when the monitor was created. */
   private volatile Instant stateChanged = Instant.now();
+
+  /**
+   * The server the channel last connected to, such as an IOC or a CA gateway, which stays known
+   * after a disconnect; null if it never connected.
+   */
+  private volatile InetSocketAddress lastServer = null;
 
   private final AtomicReference<String[]> enumLabels =
       new AtomicReference<>(
@@ -201,6 +209,28 @@ public class ChannelMonitor implements Closeable {
   private void setState(MonitorState newState) {
     if (state.getAndSet(newState) != newState) {
       stateChanged = Instant.now();
+    }
+  }
+
+  /**
+   * Return the server the channel last connected to: an IOC, or a CA gateway in front of it. It
+   * stays known after a disconnect, when CA can no longer say which server had the PV.
+   *
+   * @return The server's address, or null if the channel never connected
+   */
+  public InetSocketAddress getLastServer() {
+    return lastServer;
+  }
+
+  /** Remember the server the channel is connected to. */
+  private void recordServer() {
+    try {
+      CATransport transport = channel.getTransport();
+      if (transport != null) {
+        lastServer = transport.getRemoteAddress();
+      }
+    } catch (RuntimeException e) {
+      LOGGER.log(Level.FINE, "Unable to get server of " + pv, e);
     }
   }
 
@@ -377,6 +407,8 @@ public class ChannelMonitor implements Closeable {
                 // "false" return value, which is ignored
 
                 if (ce.isConnected()) {
+                  recordServer();
+
                   DBRType type = channel.getFieldType();
 
                   if (type == DBRType.ENUM) {
