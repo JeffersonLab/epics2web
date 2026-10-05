@@ -30,7 +30,11 @@ fix what fails, and report what you ran and what it returned.
   property in any JVM that creates a CA context, or CAJ leaves a repeater holding UDP 5065.
 - Outside systems: EPICS IOCs and CA gateways, through Channel Access. The test IOC stands in for
   them. Never point `EPICS_CA_ADDR_LIST` at real IOCs or gateways.
-- UI changes: open `/epics2web/test-camonitor`, `/epics2web/test-caget` and `/epics2web/console`.
+- UI changes: check them in a browser; every page is linked from the overview page, `/epics2web/`.
+  `epics2web.js` is the client library: `/epics2web/test-camonitor` is the page here that uses it.
+  Other apps, such as WEDM, load `epics2web.min.js`, `epics2web.min.css`, jQuery and the
+  connection-state images from this server's `/epics2web/resources/`, so keep those paths and the
+  JS API compatible.
 - New settings are environment variables read in `Application` (`getSecondsFromEnv`), and
   documented in the README's Configure section.
 - Rules for code that uses CAJ (the JCA library), learned from bugs:
