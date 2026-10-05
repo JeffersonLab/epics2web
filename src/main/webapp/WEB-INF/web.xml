@@ -21,6 +21,11 @@
         <env-entry-value>@PRODUCTION_RELEASE@</env-entry-value>
     </env-entry> 
     <context-param>
+        <param-name>jakarta.servlet.jsp.jstl.fmt.fallbackLocale</param-name>
+        <param-value>en-US</param-value>
+        <description>Locale of fmt tags when a request has no Accept-Language; without it they fall back to toString()</description>
+    </context-param>
+    <context-param>
         <param-name>org.apache.tomcat.websocket.textBufferSize</param-name>
         <param-value>8192</param-value>
         <description>Ensure Tomcat allows 8KiB messages</description>
