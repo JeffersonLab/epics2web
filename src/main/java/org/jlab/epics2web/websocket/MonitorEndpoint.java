@@ -14,8 +14,8 @@ import jakarta.websocket.PongMessage;
 import jakarta.websocket.Session;
 import jakarta.websocket.server.ServerEndpoint;
 import java.io.StringReader;
-import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -77,24 +77,7 @@ public class MonitorEndpoint {
           }
         }
 
-        String name = "";
-        String q = session.getQueryString();
-        if (q != null) {
-          String[] tokens = q.split("=");
-          if (tokens.length == 2) {
-            try {
-              name = URLDecoder.decode(tokens[1], "UTF-8");
-            } catch (UnsupportedEncodingException e) {
-              LOGGER.log(
-                  Level.WARNING,
-                  "JVM doesn't support UTF-8 so can't decode clientName parameter",
-                  e);
-            }
-          }
-          if (name == null) {
-            name = "";
-          }
-        }
+        String name = clientName(session.getQueryString());
 
         session.getUserProperties().put("agent", agent);
         session.getUserProperties().put("ip", ip);
@@ -124,6 +107,34 @@ public class MonitorEndpoint {
 
       Application.sessionManager.addClient(session);
     }
+  }
+
+  /**
+   * Read the clientName parameter from a handshake's query string. The query may have other
+   * parameters, in any order.
+   *
+   * @param query The raw query string, or null
+   * @return The decoded name, or empty if there's none or it's malformed
+   */
+  static String clientName(String query) {
+    if (query == null) {
+      return "";
+    }
+
+    for (String parameter : query.split("&")) {
+      int equals = parameter.indexOf('=');
+
+      if (equals > 0 && "clientName".equals(parameter.substring(0, equals))) {
+        try {
+          return URLDecoder.decode(parameter.substring(equals + 1), StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException e) {
+          LOGGER.log(Level.FINE, "Malformed clientName parameter: {0}", parameter);
+          return "";
+        }
+      }
+    }
+
+    return "";
   }
 
   @OnClose
