@@ -138,7 +138,7 @@ jlab.epics2web.ClientConnection = function (options) {
             let u = this.url;
             
             if(this.clientName !== null) {
-                u = u + '?clientName=' + encodeURIComponent(this.clientName);
+                u = u + (u.indexOf('?') === -1 ? '?' : '&') + 'clientName=' + encodeURIComponent(this.clientName);
             }
 
             socket = new WebSocket(u);

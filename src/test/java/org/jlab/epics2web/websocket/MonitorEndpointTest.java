@@ -1,5 +1,6 @@
 package org.jlab.epics2web.websocket;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -54,5 +55,33 @@ public class MonitorEndpointTest {
     assertFalse("onClose interrupted its thread", Thread.currentThread().isInterrupted());
     assertNull("Write queue not closed", client.writeQueue.take());
     assertTrue(manager.toSet().isEmpty());
+  }
+
+  @Test
+  public void clientNameIsReadAmongOtherParameters() {
+    assertEquals("screen", MonitorEndpoint.clientName("clientName=screen"));
+    assertEquals("screen", MonitorEndpoint.clientName("a=1&clientName=screen"));
+    assertEquals("screen", MonitorEndpoint.clientName("clientName=screen&a=1&b"));
+    assertEquals("screen", MonitorEndpoint.clientName("a&clientName=screen"));
+  }
+
+  /** The JavaScript client sends its page's address, which may have a query string of its own. */
+  @Test
+  public void clientNameIsDecoded() {
+    assertEquals(
+        "https://example.org/wedm/screen?edl=a b.edl&x=1",
+        MonitorEndpoint.clientName(
+            "clientName=https%3A%2F%2Fexample.org%2Fwedm%2Fscreen%3Fedl%3Da%20b.edl%26x%3D1"));
+  }
+
+  @Test
+  public void clientNameIsEmptyWhenMissingOrMalformed() {
+    assertEquals("", MonitorEndpoint.clientName(null));
+    assertEquals("", MonitorEndpoint.clientName(""));
+    assertEquals("", MonitorEndpoint.clientName("a=1"));
+    assertEquals("", MonitorEndpoint.clientName("xclientName=screen"));
+    assertEquals("", MonitorEndpoint.clientName("clientName"));
+    assertEquals("", MonitorEndpoint.clientName("clientName="));
+    assertEquals("", MonitorEndpoint.clientName("clientName=%zz"));
   }
 }
