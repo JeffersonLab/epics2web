@@ -12,14 +12,12 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.jlab.epics2web.Application;
 import org.jlab.epics2web.epics.ChannelManager;
-import org.jlab.epics2web.epics.ChannelMonitor;
-import org.jlab.epics2web.epics.FrozenPvDetector;
+import org.jlab.epics2web.epics.UnhealthyPvs;
 
 /**
  * Controller for Healthcheck page. Return 200 OK, for healthy Return 503 Service Unavailable for
@@ -56,65 +54,40 @@ public class Healthcheck extends HttpServlet {
     // serves it, which a restart is expected to fix. See FrozenPvDetector.
     boolean frozenMode = isSet(request.getParameter("frozen"));
 
-    boolean healthy = true;
-
-    Map<String, ChannelMonitor> monitorMap = channelManager.getMonitorMap();
+    List<UnhealthyPvs.UnhealthyPv> unhealthy =
+        UnhealthyPvs.current(
+            channelManager.getMonitorMap(),
+            Application.frozenPvDetector,
+            Duration.ofSeconds(Application.HEALTHCHECK_GRACE_SECONDS));
 
     Instant now = Instant.now();
-
-    Map<String, JsonObjectBuilder> entries = new LinkedHashMap<>();
-
-    for (Map.Entry<String, ChannelMonitor> entry : monitorMap.entrySet()) {
-      String pv = entry.getKey();
-      ChannelMonitor monitor = entry.getValue();
-      ChannelMonitor.MonitorState state = monitor.getState();
-
-      if (state == ChannelMonitor.MonitorState.CONNECTED) {
-        continue;
-      }
-
-      // Time since the PV disconnected, or since monitoring began if it never connected
-      Duration notConnected = Duration.between(monitor.getStateChanged(), now);
-
-      if (notConnected.toSeconds() > Application.HEALTHCHECK_GRACE_SECONDS) {
-        // A PV that never connected may just not exist, such as a mistyped name, so it's listed
-        // but doesn't make strict mode fail
-        if (state == ChannelMonitor.MonitorState.DISCONNECTED) {
-          healthy = false;
-        }
-
-        JsonObjectBuilder unhealthyChannel = Json.createObjectBuilder();
-        unhealthyChannel.add("name", pv);
-        unhealthyChannel.add("state", state.name());
-        unhealthyChannel.add(
-            "disconnected_minutes", String.format("%.1f", notConnected.toSeconds() / 60.0));
-        entries.put(pv, unhealthyChannel);
-      }
-    }
-
-    Map<String, FrozenPvDetector.FrozenPv> frozen =
-        Application.frozenPvDetector == null ? Map.of() : Application.frozenPvDetector.getFrozen();
-
-    for (Map.Entry<String, FrozenPvDetector.FrozenPv> entry : frozen.entrySet()) {
-      String pv = entry.getKey();
-      ChannelMonitor monitor = monitorMap.get(pv);
-      JsonObjectBuilder frozenChannel =
-          entries.computeIfAbsent(
-              pv,
-              k ->
-                  Json.createObjectBuilder()
-                      .add("name", pv)
-                      .add("state", monitor == null ? "UNKNOWN" : monitor.getState().name()));
-      frozenChannel.add("frozen", true);
-      frozenChannel.add(
-          "frozen_minutes",
-          String.format(
-              "%.1f", Duration.between(entry.getValue().since(), now).toSeconds() / 60.0));
-      frozenChannel.add("frozen_reason", entry.getValue().reason());
-    }
+    boolean healthy = true;
+    boolean anyFrozen = false;
 
     JsonArrayBuilder unhealthyChannelArray = Json.createArrayBuilder();
-    entries.values().forEach(unhealthyChannelArray::add);
+
+    for (UnhealthyPvs.UnhealthyPv pv : unhealthy) {
+      JsonObjectBuilder channel = Json.createObjectBuilder();
+      channel.add("name", pv.name());
+      channel.add("state", pv.state() == null ? "UNKNOWN" : pv.state().name());
+
+      if (pv.notConnected() != null) {
+        channel.add("disconnected_minutes", minutes(pv.notConnected()));
+      }
+
+      if (pv.disconnected()) {
+        healthy = false;
+      }
+
+      if (pv.frozen() != null) {
+        anyFrozen = true;
+        channel.add("frozen", true);
+        channel.add("frozen_minutes", minutes(Duration.between(pv.frozen().since(), now)));
+        channel.add("frozen_reason", pv.frozen().reason());
+      }
+
+      unhealthyChannelArray.add(channel);
+    }
 
     response.setContentType("application/json");
 
@@ -122,7 +95,7 @@ public class Healthcheck extends HttpServlet {
 
     response.setStatus(HttpServletResponse.SC_OK);
 
-    if ((strict && !healthy) || (frozenMode && !frozen.isEmpty())) {
+    if ((strict && !healthy) || (frozenMode && anyFrozen)) {
       response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
     }
 
@@ -137,6 +110,10 @@ public class Healthcheck extends HttpServlet {
     if (error) {
       LOGGER.log(Level.SEVERE, "PrintWriter Error");
     }
+  }
+
+  private static String minutes(Duration duration) {
+    return String.format("%.1f", duration.toSeconds() / 60.0);
   }
 
   private static boolean isSet(String param) {

@@ -80,6 +80,17 @@ public class Application implements ServletContextListener {
   /** How often to look for frozen PVs; FrozenPvDetector derives its other timings from it. */
   static final long FROZEN_CHECK_SECONDS = getSecondsFromEnv("FROZEN_CHECK_SECONDS", 10);
 
+  /**
+   * The myquery service the disconnected PVs report asks for each PV's IOC, from the MYA archiver.
+   * The browser makes the requests, so a path such as the default reaches myquery on the same host;
+   * empty turns the lookup off.
+   */
+  public static final String MYQUERY_URL = parseUrl(System.getenv("MYQUERY_URL"), "/myquery");
+
+  /** The MYA deployment myquery looks PVs up in. */
+  public static final String MYQUERY_DEPLOYMENT =
+      parseText(System.getenv("MYQUERY_DEPLOYMENT"), "ops");
+
   /** The most PVs probed at once in the independent context. */
   private static final int FROZEN_CHECK_MAX_PROBES = 20;
 
@@ -117,6 +128,29 @@ public class Application implements ServletContextListener {
         "{0} must be a positive whole number of seconds, not \"{1}\"; using {2}",
         new Object[] {name, value, defaultValue});
     return defaultValue;
+  }
+
+  /**
+   * Read a URL setting: unset gives the default, and empty (or blank) gives empty, which turns off
+   * what it's for. A trailing slash is dropped, so paths can be appended.
+   */
+  static String parseUrl(String value, String defaultValue) {
+    if (value == null) {
+      return defaultValue;
+    }
+
+    String url = value.trim();
+
+    while (url.endsWith("/")) {
+      url = url.substring(0, url.length() - 1);
+    }
+
+    return url;
+  }
+
+  /** Read a text setting: unset or blank gives the default. */
+  static String parseText(String value, String defaultValue) {
+    return value == null || value.isBlank() ? defaultValue : value.trim();
   }
 
   @SuppressWarnings("unchecked")

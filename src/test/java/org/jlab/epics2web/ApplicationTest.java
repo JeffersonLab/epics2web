@@ -25,4 +25,25 @@ public class ApplicationTest {
     assertEquals(30, Application.parseSeconds("NAME", "0", 30));
     assertEquals(30, Application.parseSeconds("NAME", "-5", 30));
   }
+
+  @Test
+  public void parseUrlUsesDefaultOnlyWhenUnset() {
+    assertEquals("/myquery", Application.parseUrl(null, "/myquery"));
+    assertEquals("", Application.parseUrl("", "/myquery"));
+    assertEquals("", Application.parseUrl("  ", "/myquery"));
+  }
+
+  @Test
+  public void parseUrlDropsTrailingSlashes() {
+    assertEquals(
+        "https://example.org/myquery", Application.parseUrl(" https://example.org/myquery/ ", ""));
+    assertEquals("/myquery", Application.parseUrl("/myquery//", ""));
+  }
+
+  @Test
+  public void parseTextUsesDefaultWhenUnsetOrBlank() {
+    assertEquals("ops", Application.parseText(null, "ops"));
+    assertEquals("ops", Application.parseText(" ", "ops"));
+    assertEquals("history", Application.parseText(" history ", "ops"));
+  }
 }

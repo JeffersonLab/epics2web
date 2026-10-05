@@ -1,0 +1,30 @@
+.explanation {
+    max-width: 60em;
+    margin-left: auto;
+    margin-right: auto;
+}
+td.list,
+td.pv,
+td.clients,
+td.client,
+td.ioc-pvs,
+td.ioc-clients {
+    text-align: left;
+    word-break: break-word;
+}
+td.clients ul {
+    margin: 0;
+    padding-left: 1.2em;
+}
+.frozen-reason {
+    font-size: smaller;
+    color: #666;
+}
+.note {
+    font-size: smaller;
+    color: #666;
+}
+.unknown {
+    color: #666;
+    font-style: italic;
+}
