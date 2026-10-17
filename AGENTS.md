@@ -5,9 +5,6 @@ project is, its settings, and how to set it up.
 
 ## Development
 
-How to check your own work here. Check each change with these commands before you call it done,
-fix what fails, and report what you ran and what it returned.
-
 - Set up: JDK 21 and Docker; use `./gradlew`, which pins Gradle. Services: a test IOC and
   epics2web, built from the working tree by `build.yaml`. Outside JLab, build the image without
   the JLab CA certificate: `docker compose -f build.yaml build --build-arg CUSTOM_CRT_URL=`. Then
@@ -20,7 +17,6 @@ fix what fails, and report what you ran and what it returned.
   (about 1.5 minutes). CI runs both. `build.yaml` shortens the ping, timeout, send-timeout,
   healthcheck grace and frozen-check settings so the tests take seconds. `HealthcheckTest` stops
   and starts the `softioc` container, so don't run it while someone else is using the containers.
-  Add or update tests with each change; never skip or weaken a test to make it pass.
 - Test IOC (`examples/softioc-db/softioc.db`): `HELLO` changes every 0.2 s; `channel1` and
   `channel2` stay 0, and tests rely on that, so don't `caput` them; `big_string_1` to
   `big_string_8` are 15000-character strings updating at 10 Hz, for `StalledClientTest`.
@@ -54,55 +50,170 @@ fix what fails, and report what you ran and what it returned.
     in tests, create DBRs with `TestDbrs`.
   - Known CAJ bug: after a circuit becomes unresponsive and recovers, each update arrives twice
     (#48).
-- Never commit secrets.
 
-## Commit identity
+<!-- BEGIN coding-agents shared rules 6.1.0 (generated: edit in acc/iac/docs/coding-agents) -->
+
+## Shared rules
+
+These rules are the same in every project that uses them. Where this file's other sections say
+otherwise, follow those.
+
+### Checking your work
+
+- Check each change with the Development section's commands before you call it done, fix what
+  fails, and report what you ran and what it returned.
+- Verify every change with checks appropriate to its behavior and regression risk. Add or update
+  tests where that risk warrants them; meaningful existing coverage can suffice. For bug fixes,
+  show the regression test fails without the fix and passes with it when practical; explain when
+  this cannot be shown. For documentation or formatting, check links, examples, or formatting
+  as applicable. Never skip or weaken a check merely to make it pass.
+- For code with thin tests, use characterization tests where they help establish a baseline:
+  they record existing behavior, not necessarily correct behavior. Separate them into a test-only
+  merge request when risk or review needs warrant it; otherwise include them with the change.
+- Never use production data, and never commit secrets.
+
+### Task authorization
+
+- Use the request and authorization already given in the session; do not ask again for an
+  authorized action. “Look around and suggest improvements” means investigate, run local
+  checks, and report; it does not authorize implementing or publishing the suggestions.
+- An implementation request such as “Fix this bug” authorizes the local changes and verification
+  needed to finish it. Complete them; ask before a material expansion of scope.
+- Commit and push only when asked. “Create a merge request for issue #14” also authorizes
+  implementation, verification, commits, pushing the branch, and opening the merge request.
+  A local implementation request alone does not. A request to address review on that merge
+  request authorizes the necessary follow-up commits and pushes.
+- A requested review authorizes checks and posting findings as comments. Commit and push review
+  fixes only when asked; follow the review conventions below.
+- Releases, deployments, production data changes, and settings changes in external systems need
+  authorization for the action and target environment. A request to implement a change or open
+  a merge request alone does not give it. Follow the project's release, issue-filing, and access
+  rules; never approve, merge, or enable auto-merge.
+- Ask only when a consequential ambiguity remains; continue independent work within the
+  authorized scope while waiting.
+
+### Commit identity
 
 Commits written by an agent must say so. Before committing, check that the repository-local
-identity (never `--global`) is that of the GitHub App bot you push with, so GitHub links the
-commits to it and squash commits show the same name. Never commit under a person's name or
-email. Name the agent and model in a trailer: keep the one your tool adds (such as
+identity (never `--global`) is the bot's whose token you push with, so the Git host links the
+commits to it and squash commits show the same name:
+
+```bash
+git config user.name "<bot's name>"   # e.g. "<username> agent VM[bot]"
+git config user.email "<bot's noreply address>"
+```
+
+On GitLab, `glab api user` shows the bot's `name` and `username`, and the address is
+`<username>@noreply.<host>` (for example `project_…_bot_…@noreply.code.jlab.org`). Never commit
+under a person's name or email. Name the agent and model in a trailer on every agent-written
+commit, including follow-up and reviewer commits: keep the one your tool adds (such as
 `Co-Authored-By`), or else add `Assisted-by: <agent>:<model>`.
 
-## Commits
+### Commits
 
 - Imperative summary line, then a body explaining what changed and why.
-- Squash merges use the commit messages: write the first one for `main`.
+- Trailers come last, in one paragraph: the release trailers this file asks for, if any (such as
+  `Changelog:`), then tool-required ones, with no blank line between them. Git reads trailers
+  only from the last paragraph; check with
+  `git log -1 --format=%B | git interpret-trailers --parse`.
+- The squash commit message template uses the first commit's message: write it for `main`, and
+  put release trailers on it only. Later commits, including a reviewer's, retain agent/model
+  attribution trailers but omit release trailers. Keep the first message current for the whole
+  change, preserving its attribution and adding any distinct agent/model attribution from later
+  commits so the squash credits them too.
 - Commit and push only when asked.
 
-## Branches and pull requests
+### Branches and merge requests
 
 - Start each task on a new branch from an up-to-date `main`; target `main`. Work only in your
   own clone or worktree.
-- Label every pull request `source::ai`, and make the person who reviews it both reviewer and
+- Label every merge request `source::ai`, and make the person who reviews it both reviewer and
   assignee (ask for their username if you don't know it).
-- You cannot add items to the JeffersonLab organization's project: when you report back, list
-  the pull requests and issues you opened, so the person can add them to the period's project.
-- Never change `VERSION` unless asked: a change to it on `main` releases the project (tag, GitHub
-  release with the war, and Docker image). When asked, open a pull request that changes only
-  `VERSION`, with the commit message `vX.Y.Z`, and write any upgrade steps in its description for
-  the maintainer to add to the release.
-- A person reviews and merges, and merged branches are deleted; never merge, approve, or enable
-  auto-merge yourself.
-- Before pushing to a pull request's branch, check that it is still open: commits pushed after it
-  merged never reach `main`, so put them in a new pull request.
-- To build on a pull request still in review, branch from its branch and target that branch,
+- Delete the source branch on merge. A person reviews and merges; never merge, approve, or
+  enable auto-merge yourself.
+- Before pushing to a merge request's branch, check that it is still open: commits pushed after
+  it merged never reach `main`, so put them in a new merge request.
+- To build on a merge request still in review, branch from its branch and target that branch,
   saying so in the description. Once the first merges, check that yours now targets `main`, and
-  retarget it if not.
-- Describe what changed, any deployment steps, and the checks you ran, including what you could
-  not run. Add a short Decisions part when the person questioned or changed something, or when
-  alternatives were dropped.
-- After pushing, wait for the pull request's checks to finish before reporting it ready (`build`
-  and `integration` from CI, and CodeQL). Read failed jobs' logs and fix the cause; never skip or
-  weaken a check to pass it. Report how they ended, and say if one failed for a reason outside
-  your change.
+  retarget it if not: GitHub retargets it only if the merged branch was deleted.
+- Describe what changed, any deployment steps, and the checks you ran. Add a short Decisions
+  part: what the person questioned or changed during the session, which alternatives were
+  dropped and why, and any second opinion that changed something.
+- After pushing, wait for the merge request's pipeline to finish before reporting it ready. Read
+  failed jobs' logs and fix the cause; never skip or weaken a check to pass it. Report how it
+  ended, with its link, and say if it failed for a reason outside your change. On GitLab,
+  `glab mr view <number> -F json | jq '.head_pipeline | {sha, status, web_url}'` shows it; plain
+  `glab ci status` can miss merge request pipelines, and `--live` waits only in a terminal.
 - Name the issue a change is for in the commit body: `Fixes #<issue>`, or `Part of #<issue>` if
   some of it stays open. Work you were asked to do needs no issue.
+- For another GitLab project's issue or merge request, prefer `project#123` or
+  `project!456` with no space, when it resolves correctly from the current context. Check
+  the rendered link's destination before publishing. Otherwise use the full namespace path
+  or full URL; GitLab can display the URL as a reference. An explicit Markdown link can
+  use a concise label. `project #123` and
+  `project !456` link the bare number to the current project. Apply this to descriptions,
+  comments, commit messages, and documentation.
+
+### Issues
+
 - For something outside your task (another project, code another agent is working on, or a
   change that needs a decision), don't fix it in passing: offer to open an issue, labeled
   `source::ai` and assigned to the person you work with, with what you found, the evidence, and a
   suggested fix.
-- When asked to address a review, reply in each thread with what you changed, and push new
-  commits rather than rewriting ones already reviewed; the reviewer resolves the threads.
+- File issues as the bot with `source::ai`, and end their descriptions (including planning
+  issues) with a plain-text `Prepared-by: <vendor> <agent>:<model identifier>` footer, such as
+  `Prepared-by: OpenAI Codex:<model identifier>`,
+  `Prepared-by: Anthropic Claude Code:<model identifier>`, or
+  `Prepared-by: Google Gemini:<model identifier>`. Use the specific model identifier
+  when known; otherwise use the known model family (for example `GPT-6`), omitting unknown
+  variant or version details. Use `unavailable` only when neither is known; never guess.
+  Preserve existing footers;
+  for substantive analysis, proposed-change, or acceptance-criteria updates, append your own
+  if that vendor, agent, and model are not already credited. Routine metadata or formatting
+  edits need no new footer.
+- When asked to plan work for other agents: check claims before filing, list draft issues before
+  filing them, make each one self-contained with "Done when" and what not to do, say which can
+  start now and which are blocked or share files, and ask before filing anything
+  security-sensitive (file it confidential).
+
+### Review
+
+- When asked to address a review, reply in each thread with what you changed, and push content
+  fixes as new commits; the reviewer resolves the threads. The author may reword only the first
+  message when its description, release metadata, or attribution needs updating. Coordinate
+  with anyone working on the branch, save the old tip, and keep the base, patches, and commit
+  order unchanged. Rewording changes descendant IDs too: check `git range-diff` between the old
+  and new series for only the intended message change, and `git diff <old-tip> HEAD` for no tree
+  change. Push with `--force-with-lease=refs/heads/<branch>:<saved-remote-tip>`; stop if the lease
+  fails. Report the old/new tips and message changes so the reviewer can compare patches.
+- When asked to review a merge request, leave comments by default without asking which mode to
+  use. Commit and push fixes only when asked; coordinate with the author before pushing if they
+  are still working on the branch. Add one commit per recommendation on top of the author's
+  (never rewrite theirs), retaining your agent/model attribution but omitting release trailers
+  on follow-up commits. Then post one comment listing each commit, what you tested, that the
+  author must pull, and any first-message update needed for the whole change or squash
+  attribution. Never approve, merge, or resolve threads.
 - When the person corrects you on something any agent here should know, propose adding it to
-  this file, or better a check that catches it. Keep one developer's preferences out of it.
+  this file's project rules, or better a check that catches it. Keep one developer's preferences
+  out of it.
+
+<!-- END coding-agents shared rules -->
+
+## Project rules
+
+### GitHub
+
+This project is on GitHub: where the shared rules say merge request, read pull request, and for
+its pipeline, its checks: `build` and `integration` from CI, and CodeQL.
+
+### Releases
+
+Never change `VERSION` unless asked: a change to it on `main` releases the project (tag, GitHub
+release with the war, and Docker image). When asked, open a pull request that changes only
+`VERSION`, with the commit message `vX.Y.Z`, and write any upgrade steps in its description for
+the maintainer to add to the release.
+
+### GitHub organization project
+
+You cannot add items to the project: when you report back, list the pull requests and issues you
+opened, so the person can add them to the period's project.
