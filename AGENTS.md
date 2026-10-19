@@ -51,12 +51,15 @@ project is, its settings, and how to set it up.
   - Known CAJ bug: after a circuit becomes unresponsive and recovers, each update arrives twice
     (#48).
 
-<!-- BEGIN coding-agents shared rules 6.1.0 (generated: edit in acc/iac/docs/coding-agents) -->
+<!-- BEGIN coding-agents shared rules 6.2.0 (generated: edit in acc/iac/docs/coding-agents) -->
 
 ## Shared rules
 
 These rules are the same in every project that uses them. Where this file's other sections say
 otherwise, follow those.
+
+On GitHub, "merge request" means "pull request", and "pipeline" means the pull request's
+required checks.
 
 ### Checking your work
 
@@ -99,7 +102,7 @@ identity (never `--global`) is the bot's whose token you push with, so the Git h
 commits to it and squash commits show the same name:
 
 ```bash
-git config user.name "<bot's name>"   # e.g. "<username> agent VM[bot]"
+git config user.name "<bot's name>"   # e.g. "<username> office agent[bot]"
 git config user.email "<bot's noreply address>"
 ```
 
@@ -139,11 +142,23 @@ commit, including follow-up and reviewer commits: keep the one your tool adds (s
 - Describe what changed, any deployment steps, and the checks you ran. Add a short Decisions
   part: what the person questioned or changed during the session, which alternatives were
   dropped and why, and any second opinion that changed something.
+- End every agent-prepared merge request or pull request description with a plain-text
+  `Prepared-by: <vendor> <agent>:<model identifier>` footer, such as
+  `Prepared-by: OpenAI Codex:GPT-6`. Use the specific model identifier when known; otherwise
+  use the known model family, omitting unknown variant or version details. Use `unavailable`
+  only when neither is known; never guess. Preserve existing credits. For substantive
+  description updates, append your own footer if that vendor, agent, and model are not already
+  credited; routine metadata or formatting edits need no new footer. Keep equivalent
+  tool-provided footer attribution that identifies the vendor, agent, and known model without
+  adding an identical credit; if it is incomplete, keep it and add the `Prepared-by:` footer.
+  Keep all attribution at the end. In a release merge request or pull request, put it under a
+  separate heading after "Release notes", outside that section.
 - After pushing, wait for the merge request's pipeline to finish before reporting it ready. Read
   failed jobs' logs and fix the cause; never skip or weaken a check to pass it. Report how it
   ended, with its link, and say if it failed for a reason outside your change. On GitLab,
-  `glab mr view <number> -F json | jq '.head_pipeline | {sha, status, web_url}'` shows it; plain
-  `glab ci status` can miss merge request pipelines, and `--live` waits only in a terminal.
+  `glab mr view <number> -F json | jq '.head_pipeline | {sha, status, web_url}'` shows it; until
+  its `sha` is the commit you pushed, your push's pipeline has not started, and
+  `glab ci status --wait` would follow an older one.
 - Name the issue a change is for in the commit body: `Fixes #<issue>`, or `Part of #<issue>` if
   some of it stays open. Work you were asked to do needs no issue.
 - For another GitLab project's issue or merge request, prefer `project#123` or
@@ -201,19 +216,15 @@ commit, including follow-up and reviewer commits: keep the one your tool adds (s
 
 ## Project rules
 
-### GitHub
-
-This project is on GitHub: where the shared rules say merge request, read pull request, and for
-its pipeline, its checks: `build` and `integration` from CI, and CodeQL.
-
-### Releases
-
-Never change `VERSION` unless asked: a change to it on `main` releases the project (tag, GitHub
-release with the war, and Docker image). When asked, open a pull request that changes only
-`VERSION`, with the commit message `vX.Y.Z`, and write any upgrade steps in its description for
-the maintainer to add to the release.
-
-### GitHub organization project
-
-You cannot add items to the project: when you report back, list the pull requests and issues you
-opened, so the person can add them to the period's project.
+- Required checks: `build` and `integration` from CI, and CodeQL.
+- Changelog eligibility: unused. Types: unused.
+- Breaking trailers: unused.
+- Milestones: unused.
+- Release trigger: changing `VERSION` on `main` creates a version tag and GitHub release with
+  the WAR, then publishes the demo Docker image. Release-only change: `VERSION` only, no
+  Changelog.
+- Release notes: pull request description, including any upgrade steps for the maintainer to
+  add to the release. Use [Semantic Versioning](https://semver.org/); an authorized release
+  pull request changes only `VERSION` and uses `vX.Y.Z` as its commit message.
+- Queue: GitHub organization project; list opened pull requests and issues when reporting, for
+  the person to add to the period's project.
