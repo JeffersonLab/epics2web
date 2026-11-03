@@ -20,7 +20,9 @@ project is, its settings, and how to set it up.
 - Test IOC (`examples/softioc-db/softioc.db`): `HELLO` changes every 0.2 s; `channel1` and
   `channel2` stay 0, and tests rely on that, so don't `caput` them; `big_string_1` to
   `big_string_8` are 15000-character strings updating at 10 Hz, for `StalledClientTest`.
-  `docker exec softioc caget <pv>` reads them.
+  `docker exec softioc caget <pv>` reads them. The `codecr.jlab.org/acc/iac/containers/softioc`
+  image's health check reads `SOFTIOC_HEALTH_PV` (`HELLO`), so keep that record. The IOC runs as
+  uid 1234: mounted files must be readable by others, and scripts executable.
 - Tests that create CA contexts in the test JVM, such as `FrozenPvDetectionTest`, reach the test
   IOC through its published ports (`addr_list` 127.0.0.1). Set the `CA_DISABLE_REPEATER` system
   property in any JVM that creates a CA context, or CAJ leaves a repeater holding UDP 5065.
